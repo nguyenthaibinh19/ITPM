@@ -210,14 +210,17 @@ function JobDetail() {
             <div className="flex flex-wrap gap-3 mb-6">
               <span className="badge badge-primary">{job.jobType}</span>
               <span className="badge badge-secondary">
-                {job.workMode === "remote" ? "🌏 Remote" : 
-                 job.workMode === "hybrid" ? "🔄 Hybrid" : 
-                 "🏢 Onsite"}
+                {job.workMode === "remote"
+                  ? "🌏 Remote"
+                  : job.workMode === "hybrid"
+                  ? "🔄 Hybrid"
+                  : "🏢 Onsite"}
               </span>
               <span className="badge badge-info">{job.experienceLevel}</span>
               {job.salaryRange && (
                 <span className="badge badge-success">
-                  💰 ${job.salaryRange.min?.toLocaleString()} - ${job.salaryRange.max?.toLocaleString()}
+                  💰 ${job.salaryRange.min?.toLocaleString()} - $
+                  {job.salaryRange.max?.toLocaleString()}
                 </span>
               )}
             </div>

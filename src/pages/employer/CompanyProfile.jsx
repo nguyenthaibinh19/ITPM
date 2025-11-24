@@ -1,29 +1,6 @@
 import { useState, useEffect } from "react";
 import { employerAPI } from "../../services/api";
-
-// Danh sách các thành phố lớn ở Việt Nam
-const VIETNAM_CITIES = [
-  "Hồ Chí Minh",
-  "Hà Nội",
-  "Đà Nẵng",
-  "Hải Phòng",
-  "Cần Thơ",
-  "Biên Hòa",
-  "Nha Trang",
-  "Huế",
-  "Vũng Tàu",
-  "Buôn Ma Thuột",
-  "Quy Nhơn",
-  "Thủ Đức",
-  "Long Xuyên",
-  "Thái Nguyên",
-  "Rạch Giá",
-  "Mỹ Tho",
-  "Vinh",
-  "Đà Lạt",
-  "Bến Tre",
-  "Pleiku"
-];
+import { VIETNAM_CITIES, INDUSTRIES, COMPANY_SIZES } from "../../constants";
 
 function CompanyProfile() {
   const [loading, setLoading] = useState(true);
@@ -214,15 +191,20 @@ function CompanyProfile() {
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Industry <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 name="industry"
                 value={formData.industry}
                 onChange={handleChange}
                 required
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                placeholder="e.g., Technology, Healthcare, Finance"
-              />
+              >
+                <option value="">Select industry...</option>
+                {INDUSTRIES.map((industry) => (
+                  <option key={industry} value={industry}>
+                    {industry}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -237,12 +219,11 @@ function CompanyProfile() {
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
               >
                 <option value="">Select company size</option>
-                <option value="1-10">🏢 1-10 employees</option>
-                <option value="11-50">🏢 11-50 employees</option>
-                <option value="51-200">🏢 51-200 employees</option>
-                <option value="201-500">🏢 201-500 employees</option>
-                <option value="501-1000">🏢 501-1000 employees</option>
-                <option value="1000+">🏢 1000+ employees</option>
+                {COMPANY_SIZES.map((size) => (
+                  <option key={size} value={size}>
+                    🏢 {size} employees
+                  </option>
+                ))}
               </select>
             </div>
 

@@ -1,18 +1,72 @@
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { useAuth } from "./context/AuthContext";
 
 function HomePage() {
+  const { user, logout } = useAuth();
   const [searchKeyword, setSearchKeyword] = useState("");
   const [location, setLocation] = useState("");
   const [jobs, setJobs] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  const fetchSearchSuggestions = useCallback(async () => {
+    try {
+      const response = await axios.get(
+        "http://localhost:5001/api/js/jobs/search",
+        {
+          params: { keyword: searchKeyword, limit: 5, status: "open" },
+        }
+      );
+      let jobsData =
+        response.data?.data?.data || response.data?.data || response.data || [];
+      setSearchSuggestions(Array.isArray(jobsData) ? jobsData : []);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+    }
+  }, [searchKeyword]);
 
   useEffect(() => {
     fetchJobs();
     fetchCompanies();
+    fetchCities();
   }, []);
+
+  useEffect(() => {
+    if (searchKeyword.length > 1) {
+      fetchSearchSuggestions();
+    } else {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [searchKeyword, fetchSearchSuggestions]);
+
+  const fetchCities = async () => {
+    // Get unique cities from jobs
+    try {
+      const response = await axios.get(
+        "http://localhost:5001/api/js/jobs/search",
+        {
+          params: { limit: 100, status: "open" },
+        }
+      );
+      let jobsData =
+        response.data?.data?.data || response.data?.data || response.data || [];
+      const cities = [
+        ...new Set(jobsData.map((job) => job.location?.city).filter(Boolean)),
+      ];
+      setLocationSuggestions(cities);
+    } catch (error) {
+      console.error("Error fetching cities:", error);
+    }
+  };
 
   const fetchJobs = async () => {
     try {
@@ -72,9 +126,11 @@ function HomePage() {
   };
 
   const handleSearch = () => {
-    if (searchKeyword || location) {
-      window.location.href = `/candidate/login?search=${searchKeyword}&location=${location}`;
-    }
+    // Navigate to public job search page with filters
+    const params = new URLSearchParams();
+    if (searchKeyword) params.append("keyword", searchKeyword);
+    if (location) params.append("location", location);
+    window.location.href = `/jobs?${params.toString()}`;
   };
 
   const formatSalary = (salaryRange) => {
@@ -216,46 +272,161 @@ function HomePage() {
             </div>
 
             <div className="flex items-center space-x-3">
-              <button className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors">
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                  />
-                </svg>
-              </button>
-              <button className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors">
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-              </button>
-              <Link
-                to="/candidate/login"
-                className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Login
-              </Link>
+              {user ? (
+                <>
+                  {/* Saved Jobs */}
+                  <Link
+                    to="/saved"
+                    className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors relative"
+                    title="Saved Jobs"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      />
+                    </svg>
+                  </Link>
+
+                  {/* Notifications */}
+                  <button
+                    className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors relative"
+                    title="Notifications"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                      />
+                    </svg>
+                    <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                  </button>
+
+                  {/* Profile Menu */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowProfileMenu(!showProfileMenu)}
+                      className="flex items-center space-x-2 p-2 text-gray-700 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                        {user.name?.[0]?.toUpperCase() || "U"}
+                      </div>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {showProfileMenu && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                        <div className="px-4 py-3 border-b border-gray-100">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {user.name}
+                          </p>
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                        </div>
+                        <Link
+                          to="/profile"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                        >
+                          My Profile
+                        </Link>
+                        <Link
+                          to="/applications"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                        >
+                          My Applications
+                        </Link>
+                        <Link
+                          to="/saved"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                        >
+                          Saved Jobs
+                        </Link>
+                        <Link
+                          to="/cv"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                        >
+                          My CV
+                        </Link>
+                        <Link
+                          to="/settings"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                        >
+                          Settings
+                        </Link>
+                        <hr className="my-2" />
+                        <button
+                          onClick={() => {
+                            logout();
+                            setShowProfileMenu(false);
+                          }}
+                          className="block w-full text-left px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/employer/login"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+                  >
+                    For Employers
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    Sign Up
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
       </nav>
+
+      {/* Close dropdown when clicking outside */}
+      {showProfileMenu && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowProfileMenu(false)}
+        />
+      )}
 
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 py-16">
@@ -293,7 +464,7 @@ function HomePage() {
             <div className="flex flex-col md:flex-row gap-3">
               <div className="flex-1 relative">
                 <svg
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -310,13 +481,51 @@ function HomePage() {
                   placeholder="Search jobs, positions..."
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
+                  onFocus={() =>
+                    searchSuggestions.length > 0 && setShowSuggestions(true)
+                  }
+                  onBlur={() =>
+                    setTimeout(() => setShowSuggestions(false), 200)
+                  }
                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
                 />
+                {/* Search Suggestions Dropdown */}
+                {showSuggestions && searchSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+                    {searchSuggestions.map((job) => (
+                      <Link
+                        key={job._id}
+                        to={`/jobs/${job._id}`}
+                        className="block px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                        onClick={() => setShowSuggestions(false)}
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                            {job.company?.companyName?.[0] || "C"}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900 truncate">
+                              {job.title}
+                            </h4>
+                            <p className="text-sm text-gray-600 truncate">
+                              {job.company?.companyName}
+                            </p>
+                            <div className="flex items-center space-x-2 mt-1 text-xs text-gray-500">
+                              <span>{job.location?.city}</span>
+                              <span>•</span>
+                              <span className="capitalize">{job.jobType}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex-1 relative">
                 <svg
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -339,8 +548,50 @@ function HomePage() {
                   placeholder="Location"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
+                  onFocus={() => setShowLocationSuggestions(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowLocationSuggestions(false), 200)
+                  }
                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
                 />
+                {/* Location Suggestions Dropdown */}
+                {showLocationSuggestions && locationSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                    {locationSuggestions
+                      .filter(
+                        (city) =>
+                          !location ||
+                          city.toLowerCase().includes(location.toLowerCase())
+                      )
+                      .map((city, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setLocation(city);
+                            setShowLocationSuggestions(false);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <svg
+                              className="w-4 h-4 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                              />
+                            </svg>
+                            <span className="text-gray-900">{city}</span>
+                          </div>
+                        </button>
+                      ))}
+                  </div>
+                )}
               </div>
 
               <button
@@ -404,9 +655,7 @@ function HomePage() {
               {displayJobs.map((job) => (
                 <Link
                   key={job._id || job.id}
-                  to={
-                    job._id ? `/candidate/jobs/${job._id}` : "/candidate/login"
-                  }
+                  to={job._id ? `/jobs/${job._id}` : "#"}
                   className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow block"
                 >
                   <div className="flex items-start justify-between mb-4">
@@ -540,9 +789,12 @@ function HomePage() {
           )}
 
           <div className="text-center mt-8">
-            <button className="px-8 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">
-              View More Jobs
-            </button>
+            <Link
+              to="/jobs"
+              className="inline-block px-8 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              View More Jobs →
+            </Link>
           </div>
         </div>
       </section>

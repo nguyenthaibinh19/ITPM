@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { jobSeekerAPI } from "../../services/api";
+import { WORK_MODES, JOB_TYPES, EXPERIENCE_LEVELS } from "../../constants";
 
 function Explore() {
   const [jobs, setJobs] = useState([]);
@@ -120,9 +121,14 @@ function Explore() {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             <option value="">All Work Modes</option>
-            <option value="onsite">🏢 Onsite</option>
-            <option value="remote">🌏 Remote</option>
-            <option value="hybrid">🔄 Hybrid</option>
+            {WORK_MODES.map((mode) => (
+              <option key={mode} value={mode.toLowerCase().replace("-", "")}>
+                {mode === "On-site" && "🏢 "}
+                {mode === "Remote" && "🌏 "}
+                {mode === "Hybrid" && "🔄 "}
+                {mode}
+              </option>
+            ))}
           </select>
           <select
             value={filters.jobType}
@@ -132,10 +138,16 @@ function Explore() {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             <option value="">All Job Types</option>
-            <option value="fulltime">💼 Full-time</option>
-            <option value="parttime">⏰ Part-time</option>
-            <option value="contract">📝 Contract</option>
-            <option value="internship">🎓 Internship</option>
+            {JOB_TYPES.map((type) => (
+              <option key={type} value={type.toLowerCase().replace("-", "")}>
+                {type === "Full-time" && "💼 "}
+                {type === "Part-time" && "⏰ "}
+                {type === "Contract" && "📝 "}
+                {type === "Internship" && "🎓 "}
+                {type === "Freelance" && "💻 "}
+                {type}
+              </option>
+            ))}
           </select>
           <select
             value={filters.experienceLevel}
@@ -145,11 +157,11 @@ function Explore() {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             <option value="">All Experience Levels</option>
-            <option value="entry">Entry Level</option>
-            <option value="mid">Mid Level</option>
-            <option value="senior">Senior</option>
-            <option value="lead">Lead</option>
-            <option value="executive">Executive</option>
+            {EXPERIENCE_LEVELS.map((level) => (
+              <option key={level} value={level.toLowerCase().replace(" ", "")}>
+                {level}
+              </option>
+            ))}
           </select>
         </div>
         <button
@@ -234,9 +246,11 @@ function Explore() {
                         <span>•</span>
                         <span className="flex items-center space-x-1">
                           <span>
-                            {job.workMode === "remote" ? "🌏 Remote" : 
-                             job.workMode === "hybrid" ? "🔄 Hybrid" : 
-                             "🏢 Onsite"}
+                            {job.workMode === "remote"
+                              ? "🌏 Remote"
+                              : job.workMode === "hybrid"
+                              ? "🔄 Hybrid"
+                              : "🏢 Onsite"}
                           </span>
                         </span>
                         <span>•</span>

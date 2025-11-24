@@ -97,9 +97,11 @@ function JobListPage() {
               <div className="job-meta">
                 <span>📍 {job.location?.city || "Remote"}</span>
                 <span>
-                  {job.workMode === "remote" ? "🌏 Remote" : 
-                   job.workMode === "hybrid" ? "🔄 Hybrid" : 
-                   "🏢 Onsite"}
+                  {job.workMode === "remote"
+                    ? "🌏 Remote"
+                    : job.workMode === "hybrid"
+                    ? "🔄 Hybrid"
+                    : "🏢 Onsite"}
                 </span>
                 <span>💼 {job.experienceLevel || "All levels"}</span>
                 <span>⏱ {job.jobType || "Full-time"}</span>

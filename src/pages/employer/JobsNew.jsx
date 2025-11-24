@@ -1,31 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { employerAPI } from "../../services/api";
-
-// Danh sách các thành phố lớn ở Việt Nam
-const VIETNAM_CITIES = [
-  "Hồ Chí Minh",
-  "Hà Nội",
-  "Đà Nẵng",
-  "Hải Phòng",
-  "Cần Thơ",
-  "Biên Hòa",
-  "Nha Trang",
-  "Huế",
-  "Vũng Tàu",
-  "Buôn Ma Thuột",
-  "Quy Nhơn",
-  "Thủ Đức",
-  "Long Xuyên",
-  "Thái Nguyên",
-  "Rạch Giá",
-  "Mỹ Tho",
-  "Vinh",
-  "Đà Lạt",
-  "Bến Tre",
-  "Pleiku",
-  "Remote (Toàn Quốc)"
-];
+import {
+  VIETNAM_CITIES,
+  INDUSTRIES,
+  JOB_TYPES,
+  WORK_MODES,
+  EXPERIENCE_LEVELS,
+} from "../../constants";
 
 function JobsNew() {
   const [view, setView] = useState("list");
@@ -182,6 +164,7 @@ function JobsNew() {
       await fetchJobs();
       setTimeout(() => setMessage({ type: "", text: "" }), 3000);
     } catch (error) {
+      console.error("Error deleting job:", error);
       setMessage({ type: "error", text: "Failed to delete job" });
     }
   };
@@ -200,7 +183,7 @@ function JobsNew() {
       setMessage({ type: "success", text: "✓ Application status updated!" });
       await fetchApplicants(selectedJob._id);
       setTimeout(() => setMessage({ type: "", text: "" }), 2000);
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to update status" });
     }
   };
@@ -457,9 +440,11 @@ function JobsNew() {
                           </span>
                           <span>•</span>
                           <span className="capitalize">
-                            {job.workMode === "remote" ? "🌏 Remote" : 
-                             job.workMode === "hybrid" ? "🔄 Hybrid" : 
-                             "🏢 Onsite"}
+                            {job.workMode === "remote"
+                              ? "🌏 Remote"
+                              : job.workMode === "hybrid"
+                              ? "🔄 Hybrid"
+                              : "🏢 Onsite"}
                           </span>
                           <span>•</span>
                           <span className="capitalize">{job.jobType}</span>
@@ -656,9 +641,17 @@ function JobsNew() {
                   required
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 >
-                  <option value="onsite">🏢 Onsite</option>
-                  <option value="remote">🌏 Remote</option>
-                  <option value="hybrid">🔄 Hybrid</option>
+                  {WORK_MODES.map((mode) => (
+                    <option
+                      key={mode}
+                      value={mode.toLowerCase().replace("-", "")}
+                    >
+                      {mode === "On-site" && "🏢 "}
+                      {mode === "Remote" && "🌏 "}
+                      {mode === "Hybrid" && "🔄 "}
+                      {mode}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -672,10 +665,19 @@ function JobsNew() {
                   onChange={handleChange}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 >
-                  <option value="fulltime">💼 Full-time</option>
-                  <option value="parttime">⏰ Part-time</option>
-                  <option value="contract">📝 Contract</option>
-                  <option value="internship">🎓 Internship</option>
+                  {JOB_TYPES.map((type) => (
+                    <option
+                      key={type}
+                      value={type.toLowerCase().replace("-", "")}
+                    >
+                      {type === "Full-time" && "💼 "}
+                      {type === "Part-time" && "⏰ "}
+                      {type === "Contract" && "📝 "}
+                      {type === "Internship" && "🎓 "}
+                      {type === "Freelance" && "💻 "}
+                      {type}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -689,11 +691,14 @@ function JobsNew() {
                   onChange={handleChange}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 >
-                  <option value="entry">Entry Level</option>
-                  <option value="mid">Mid Level</option>
-                  <option value="senior">Senior</option>
-                  <option value="lead">Lead</option>
-                  <option value="executive">Executive</option>
+                  {EXPERIENCE_LEVELS.map((level) => (
+                    <option
+                      key={level}
+                      value={level.toLowerCase().replace(" ", "")}
+                    >
+                      {level}
+                    </option>
+                  ))}
                 </select>
               </div>
 
