@@ -3,7 +3,11 @@ import EmployerRoutes from "./routes/employerRoutes";
 import CandidateRoutes from "./routes/candidateRoutes";
 import AdminRoutes from "./routes/adminRoutes";
 import HomePage from "./HomePage";
+<<<<<<< HEAD
 import CompaniesPage from "./pages/CompaniesPage";
+=======
+import JobListPage from "./pages/candidate/JobListPage";
+>>>>>>> origin
 
 function App() {
   return (
@@ -12,6 +16,9 @@ function App() {
         {/* Home chung */}
         <Route path="/" element={<HomePage />} />
         <Route path="/companies" element={<CompaniesPage />} />
+
+        {/* Job List */}
+        <Route path="/jobs" element={<JobListPage />} />
 
         {/* Candidate */}
         <Route path="/candidate/*" element={<CandidateRoutes />} />
