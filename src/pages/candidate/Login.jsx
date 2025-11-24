@@ -1,17 +1,39 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 function CandidateLogin() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Login:", formData);
-    navigate("/candidate");
+    setError("");
+    setLoading(true);
+
+    try {
+      const result = await login(formData.email, formData.password);
+
+      if (result.success) {
+        if (result.user.role === "js") {
+          navigate("/candidate/dashboard");
+        } else {
+          setError("Please use Job Seeker account to login here");
+        }
+      } else {
+        setError(result.error || "Login failed");
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -27,17 +49,23 @@ function CandidateLogin() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-neutral-dark">JobMatch</h1>
-          <p className="text-neutral-medium mt-2">{t("login.subtitle")}</p>
+          <p className="text-neutral-medium mt-2">Job Seeker Login</p>
         </div>
 
         <div className="bg-white p-8 rounded-lg shadow-subtle border border-neutral-light">
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label
                 htmlFor="email"
                 className="block text-sm font-medium text-neutral-medium mb-1"
               >
-                {t("login.email")}
+                Email
               </label>
               <input
                 type="email"
@@ -56,7 +84,7 @@ function CandidateLogin() {
                 htmlFor="password"
                 className="block text-sm font-medium text-neutral-medium mb-1"
               >
-                {t("login.password")}
+                Password
               </label>
               <input
                 type="password"
@@ -75,28 +103,35 @@ function CandidateLogin() {
                 href="#"
                 className="text-sm font-medium text-brand-blue hover:underline"
               >
-                {t("login.forgot")}
+                Forgot password?
               </a>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-brand-blue text-white font-semibold py-2 px-4 rounded-lg hover:opacity-90 transition-opacity"
+              disabled={loading}
+              className="w-full bg-brand-blue text-white font-semibold py-2 px-4 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {t("login.submit")}
+              {loading ? "Logging in..." : "Login"}
             </button>
           </form>
         </div>
 
         <p className="mt-6 text-center text-sm text-neutral-medium">
-          {t("login.noAccount")}{" "}
+          Don't have an account?{" "}
           <Link
-            to="/candidate/signup"
+            to="/candidate/register"
             className="font-semibold text-brand-blue hover:underline"
           >
-            {t("login.signup")}
+            Sign up
           </Link>
         </p>
+
+        <div className="mt-4 text-center">
+          <Link to="/" className="text-sm text-brand-blue hover:underline">
+            ← Back to Home
+          </Link>
+        </div>
       </div>
     </div>
   );

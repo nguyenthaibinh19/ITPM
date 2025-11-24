@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import CandidateLayout from "../layouts/CandidateLayout";
 import CandidateLogin from "../pages/candidate/Login";
+import CandidateRegister from "../pages/candidate/Register";
 import JobDetail from "../pages/candidate/JobDetail";
 import Profile from "../pages/candidate/Profile";
 import Dashboard from "../pages/candidate/Dashboard";
@@ -10,13 +11,15 @@ import Companies from "../pages/candidate/Companies";
 import Settings from "../pages/candidate/Settings";
 import Explore from "../pages/candidate/Explore";
 import Saved from "../pages/candidate/Saved";
+import Home from "../pages/candidate/Home";
 
 function CandidateRoutes() {
   return (
     <Routes>
       <Route path="login" element={<CandidateLogin />} />
+      <Route path="register" element={<CandidateRegister />} />
       <Route element={<CandidateLayout />}>
-        <Route path="" element={<CandidateHome />} />
+        <Route path="" element={<Home />} />
         <Route path="explore" element={<Explore />} />
         <Route path="saved" element={<Saved />} />
         <Route path="companies" element={<Companies />} />

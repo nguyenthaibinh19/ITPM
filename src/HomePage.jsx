@@ -1,16 +1,98 @@
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
 
 function HomePage() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [location, setLocation] = useState("");
+  const [jobs, setJobs] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleSearch = () => {
-    console.log("Searching:", { searchKeyword, location });
+  useEffect(() => {
+    fetchJobs();
+    fetchCompanies();
+  }, []);
+
+  const fetchJobs = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(
+        "http://localhost:5001/api/js/jobs/search",
+        {
+          params: { limit: 6, page: 1 },
+        }
+      );
+      console.log("Jobs response:", response.data);
+
+      // Try different response structures
+      let jobsData =
+        response.data?.data?.jobs || // Paginated response with jobs key
+        response.data?.data?.data || // Nested data.data.data
+        response.data?.jobs || // Direct jobs key
+        response.data?.data || // data.data array
+        response.data || // Direct data array
+        [];
+
+      setJobs(Array.isArray(jobsData) ? jobsData : []);
+      console.log("Extracted jobs:", jobsData);
+    } catch (error) {
+      console.error("Error fetching jobs:", error);
+      setJobs([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Mock job data
-  const jobs = [
+  const fetchCompanies = async () => {
+    try {
+      const response = await axios.get(
+        "http://localhost:5001/api/js/companies",
+        {
+          params: { limit: 4, page: 1 },
+        }
+      );
+      console.log("Companies response:", response.data);
+
+      // Try different response structures
+      let companiesData =
+        response.data?.data?.companies || // Paginated response with companies key
+        response.data?.data?.data || // Nested data.data.data
+        response.data?.companies || // Direct companies key
+        response.data?.data || // data.data array
+        response.data || // Direct data array
+        [];
+
+      setCompanies(Array.isArray(companiesData) ? companiesData : []);
+      console.log("Extracted companies:", companiesData);
+    } catch (error) {
+      console.error("Error fetching companies:", error);
+      setCompanies([]);
+    }
+  };
+
+  const handleSearch = () => {
+    if (searchKeyword || location) {
+      window.location.href = `/candidate/login?search=${searchKeyword}&location=${location}`;
+    }
+  };
+
+  const formatSalary = (salaryRange) => {
+    if (!salaryRange?.min || !salaryRange?.max) return "Negotiable";
+    return `$${salaryRange.min.toLocaleString()} - $${salaryRange.max.toLocaleString()}`;
+  };
+
+  const formatDate = (date) => {
+    const diff = Date.now() - new Date(date).getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (days === 0) return "Today";
+    if (days === 1) return "1 day ago";
+    if (days < 7) return `${days} days ago`;
+    return `${Math.floor(days / 7)} weeks ago`;
+  };
+
+  // Mock job data (fallback if no real data)
+  const mockJobs = [
     {
       id: 1,
       title: "Senior Frontend Developer",
@@ -79,45 +161,9 @@ function HomePage() {
     },
   ];
 
-  // Mock company data
-  const companies = [
-    {
-      id: 1,
-      name: "TechViet Solutions",
-      description: "Leading software development company in Vietnam",
-      industry: "Information Technology",
-      employees: "500-1000 employees",
-      jobs: 12,
-      location: "Hanoi",
-    },
-    {
-      id: 2,
-      name: "VinAI Research",
-      description: "Leading AI research center in the region",
-      industry: "AI & Machine Learning",
-      employees: "100-500 employees",
-      jobs: 8,
-      location: "Hanoi",
-    },
-    {
-      id: 3,
-      name: "Tiki Corporation",
-      description: "Vietnam's largest e-commerce platform",
-      industry: "E-commerce",
-      employees: "1000+ employees",
-      jobs: 25,
-      location: "Ho Chi Minh City",
-    },
-    {
-      id: 4,
-      name: "Momo E-wallet",
-      description: "Digital wallet and payment solutions",
-      industry: "Fintech",
-      employees: "500-1000 employees",
-      jobs: 15,
-      location: "Hanoi, HCMC",
-    },
-  ];
+  // Use real data if available, fallback to mock
+  const displayJobs = jobs.length > 0 ? jobs : mockJobs;
+  const displayCompanies = companies.length > 0 ? companies : [];
 
   return (
     <div className="min-h-screen bg-white">
@@ -339,17 +385,99 @@ function HomePage() {
             </a>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {jobs.map((job) => (
-              <div
-                key={job.id}
-                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            </div>
+          ) : displayJobs.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="text-6xl mb-4">📭</div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                No jobs available
+              </h3>
+              <p className="text-gray-600">
+                Check back later for new opportunities
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayJobs.map((job) => (
+                <Link
+                  key={job._id || job.id}
+                  to={
+                    job._id ? `/candidate/jobs/${job._id}` : "/candidate/login"
+                  }
+                  className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow block"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                        {job.company?.logoUrl ? (
+                          <img
+                            src={job.company.logoUrl}
+                            alt={job.company?.companyName || "Company"}
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <svg
+                            className="w-6 h-6 text-gray-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-900 hover:text-indigo-600">
+                          {job.title}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          {job.company?.companyName || job.company}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {(job.skills || job.tags || [])
+                      .slice(0, 3)
+                      .map((tag, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-teal-100 text-teal-700 text-xs font-medium rounded-full"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                  </div>
+
+                  <div className="space-y-2 mb-4 text-sm text-gray-600">
+                    <div className="flex items-center space-x-2">
                       <svg
-                        className="w-6 h-6 text-gray-600"
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                        />
+                      </svg>
+                      <span>{job.location?.city || job.location}</span>
+                    </div>
+                    <div className="flex items-center space-x-2 capitalize">
+                      <svg
+                        className="w-4 h-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -361,123 +489,55 @@ function HomePage() {
                           d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                         />
                       </svg>
+                      <span>{job.jobType || job.type}</span>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 hover:text-indigo-600 cursor-pointer">
-                        {job.title}
-                      </h3>
-                      <p className="text-sm text-gray-600">{job.company}</p>
+                    <div className="flex items-center space-x-2">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>
+                        {job.salaryRange
+                          ? formatSalary(job.salaryRange)
+                          : job.salary}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>
+                        {job.createdAt ? formatDate(job.createdAt) : job.posted}
+                      </span>
                     </div>
                   </div>
-                  <button className="text-gray-400 hover:text-red-500">
-                    <svg
-                      className={`w-5 h-5 ${
-                        job.saved ? "fill-red-500 text-red-500" : ""
-                      }`}
-                      fill={job.saved ? "currentColor" : "none"}
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                      />
-                    </svg>
-                  </button>
-                </div>
 
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {job.tags.map((tag, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-teal-100 text-teal-700 text-xs font-medium rounded-full"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="space-y-2 mb-4 text-sm text-gray-600">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                    <span>{job.location}</span>
+                  <div className="w-full py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-center">
+                    View Details
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <span>{job.type}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span>{job.salary}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span>{job.posted}</span>
-                  </div>
-                </div>
-
-                <button className="w-full py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">
-                  View Details
-                </button>
-              </div>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          )}
 
           <div className="text-center mt-8">
             <button className="px-8 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">
@@ -520,97 +580,148 @@ function HomePage() {
             </a>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {companies.map((company) => (
-              <div
-                key={company.id}
-                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
-              >
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <svg
-                      className="w-6 h-6 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                      />
-                    </svg>
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="bg-white border border-gray-200 rounded-lg p-6 animate-pulse"
+                >
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-gray-900">{company.name}</h3>
-                    <p className="text-xs text-gray-600">
-                      {company.description}
-                    </p>
+                  <div className="h-6 bg-gray-200 rounded-full w-20 mb-3"></div>
+                  <div className="space-y-2 mb-4">
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                    <div className="h-4 bg-gray-200 rounded"></div>
                   </div>
+                  <div className="h-10 bg-gray-200 rounded-lg"></div>
                 </div>
-
-                <span className="inline-block px-3 py-1 bg-teal-100 text-teal-700 text-xs font-medium rounded-full mb-3">
-                  {company.industry}
-                </span>
-
-                <div className="space-y-2 mb-4 text-xs text-gray-600">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+              ))}
+            </div>
+          ) : displayCompanies.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p>No companies available at the moment.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {displayCompanies.map((company) => (
+                <Link
+                  key={company._id}
+                  to={`/companies/${company._id}`}
+                  className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow block"
+                >
+                  <div className="flex items-center space-x-3 mb-4">
+                    {company.logoUrl ? (
+                      <img
+                        src={company.logoUrl}
+                        alt={company.companyName}
+                        className="w-12 h-12 rounded-lg object-cover"
                       />
-                    </svg>
-                    <span>{company.location}</span>
+                    ) : (
+                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <svg
+                          className="w-6 h-6 text-gray-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                          />
+                        </svg>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <h3 className="font-bold text-gray-900">
+                        {company.companyName || company.name}
+                      </h3>
+                      {company.description && (
+                        <p className="text-xs text-gray-600 line-clamp-2">
+                          {company.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                      />
-                    </svg>
-                    <span>{company.employees}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <span>{company.jobs} open positions</span>
-                  </div>
-                </div>
 
-                <button className="w-full py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm">
-                  View Company
-                </button>
-              </div>
-            ))}
-          </div>
+                  {company.industry && (
+                    <span className="inline-block px-3 py-1 bg-teal-100 text-teal-700 text-xs font-medium rounded-full mb-3">
+                      {company.industry}
+                    </span>
+                  )}
+
+                  <div className="space-y-2 mb-4 text-xs text-gray-600">
+                    {company.city && (
+                      <div className="flex items-center space-x-2">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                          />
+                        </svg>
+                        <span>{company.city}</span>
+                      </div>
+                    )}
+                    {company.companySize && (
+                      <div className="flex items-center space-x-2">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                          />
+                        </svg>
+                        <span>{company.companySize}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center space-x-2">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <span>
+                        {company.totalJobs || company.jobs || 0} open positions
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="w-full py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm text-center">
+                    View Company
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

@@ -1,55 +1,30 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { jobSeekerAPI } from "../../services/api";
 
 function JobStatus() {
   const [activeFilter, setActiveFilter] = useState("all");
+  const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const applications = [
-    {
-      id: 1,
-      jobTitle: "Senior Frontend Developer",
-      company: "TechCorp Vietnam",
-      appliedDate: "2025-11-14",
-      status: "interview",
-      logo: "🚀",
-      location: "Ho Chi Minh City",
-      salary: "$2000 - $3500",
-      nextStep: "Technical Interview on Nov 18",
-    },
-    {
-      id: 2,
-      jobTitle: "UI/UX Designer",
-      company: "Design Studio",
-      appliedDate: "2025-11-10",
-      status: "offer",
-      logo: "🎨",
-      location: "Remote",
-      salary: "$1500 - $2500",
-      nextStep: "Offer expires in 3 days",
-    },
-    {
-      id: 3,
-      jobTitle: "Full Stack Engineer",
-      company: "Startup Hub",
-      appliedDate: "2025-11-08",
-      status: "applied",
-      logo: "⚡",
-      location: "Hanoi",
-      salary: "$2500 - $4000",
-      nextStep: "Application under review",
-    },
-    {
-      id: 4,
-      jobTitle: "React Developer",
-      company: "Digital Solutions",
-      appliedDate: "2025-11-05",
-      status: "rejected",
-      logo: "💻",
-      location: "Da Nang",
-      salary: "$2000 - $3000",
-      nextStep: "Application not selected",
-    },
-  ];
+  useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const response = await jobSeekerAPI.getMyApplications();
+        setApplications(response.data || []);
+      } catch (err) {
+        console.error("Error fetching applications:", err);
+        setError("Failed to load applications");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchApplications();
+  }, []);
 
   const statusConfig = {
     all: {
@@ -57,20 +32,25 @@ function JobStatus() {
       color: "gray",
       count: applications.length,
     },
-    applied: {
-      label: "Applied",
+    pending: {
+      label: "Pending",
       color: "blue",
-      count: applications.filter((a) => a.status === "applied").length,
+      count: applications.filter((a) => a.status === "pending").length,
+    },
+    reviewing: {
+      label: "Reviewing",
+      color: "yellow",
+      count: applications.filter((a) => a.status === "reviewing").length,
     },
     interview: {
       label: "Interview",
-      color: "yellow",
+      color: "purple",
       count: applications.filter((a) => a.status === "interview").length,
     },
-    offer: {
-      label: "Offers",
+    accepted: {
+      label: "Accepted",
       color: "green",
-      count: applications.filter((a) => a.status === "offer").length,
+      count: applications.filter((a) => a.status === "accepted").length,
     },
     rejected: {
       label: "Rejected",
@@ -79,6 +59,25 @@ function JobStatus() {
     },
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue mx-auto"></div>
+          <p className="mt-4 text-neutral-medium">Loading applications...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p className="text-red-700">{error}</p>
+      </div>
+    );
+  }
+
   const filteredApplications =
     activeFilter === "all"
       ? applications
@@ -86,15 +85,17 @@ function JobStatus() {
 
   const getStatusBadge = (status) => {
     const colors = {
-      applied: "bg-blue-100 text-blue-800",
-      interview: "bg-yellow-100 text-yellow-800",
-      offer: "bg-green-100 text-green-800",
+      pending: "bg-blue-100 text-blue-800",
+      reviewing: "bg-yellow-100 text-yellow-800",
+      interview: "bg-purple-100 text-purple-800",
+      accepted: "bg-green-100 text-green-800",
       rejected: "bg-red-100 text-red-800",
     };
     const labels = {
-      applied: "Applied",
+      pending: "Pending",
+      reviewing: "Reviewing",
       interview: "Interview",
-      offer: "Offer",
+      accepted: "Accepted",
       rejected: "Rejected",
     };
     return `badge ${colors[status] || "bg-gray-100 text-gray-800"} ${
@@ -105,39 +106,10 @@ function JobStatus() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">
-          {t("nav.jobStatus")}
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-900">Job Applications</h1>
         <p className="text-gray-600 mt-1">
           Track your job applications and interview schedules
         </p>
-      </div>
-
-      {/* API Placeholder */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div className="flex items-start space-x-3">
-          <svg
-            className="w-6 h-6 text-blue-600 mt-0.5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <div>
-            <h4 className="font-semibold text-blue-900 mb-1">
-              API Integration Pending
-            </h4>
-            <p className="text-sm text-blue-700">
-              {t("common.apiPlaceholder")}
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* Status Filters */}
@@ -196,22 +168,32 @@ function JobStatus() {
         ) : (
           filteredApplications.map((app) => (
             <div
-              key={app.id}
+              key={app._id}
               className="card p-6 hover:shadow-lg transition-shadow duration-200"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start space-x-4 flex-1">
                   <div className="w-14 h-14 bg-gradient-to-br from-primary-400 to-secondary-400 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                    {app.logo}
+                    {app.job?.company?.logoUrl ? (
+                      <img
+                        src={app.job.company.logoUrl}
+                        alt={app.job.company.companyName}
+                        className="w-full h-full object-cover rounded-xl"
+                      />
+                    ) : (
+                      <span>🏢</span>
+                    )}
                   </div>
                   <div className="flex-1">
                     <Link
-                      to={`/candidate/jobs/${app.id}`}
+                      to={`/candidate/jobs/${app.job?._id}`}
                       className="text-xl font-bold text-gray-900 hover:text-primary-600 transition-colors duration-200"
                     >
-                      {app.jobTitle}
+                      {app.job?.title || "Job Title"}
                     </Link>
-                    <p className="text-gray-700 font-medium">{app.company}</p>
+                    <p className="text-gray-700 font-medium">
+                      {app.job?.company?.companyName || "Company"}
+                    </p>
                     <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-600">
                       <span className="flex items-center space-x-1">
                         <svg
@@ -227,12 +209,18 @@ function JobStatus() {
                             d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
                           />
                         </svg>
-                        <span>{app.location}</span>
+                        <span>{app.job?.location || "Location"}</span>
                       </span>
                       <span>•</span>
-                      <span>{app.salary}</span>
+                      <span>
+                        {app.job?.salaryRange?.min && app.job?.salaryRange?.max
+                          ? `$${app.job.salaryRange.min.toLocaleString()} - $${app.job.salaryRange.max.toLocaleString()}`
+                          : "Salary not specified"}
+                      </span>
                       <span>•</span>
-                      <span>Applied {app.appliedDate}</span>
+                      <span>
+                        Applied {new Date(app.appliedAt).toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -257,12 +245,12 @@ function JobStatus() {
                     />
                   </svg>
                   <span className="text-sm text-gray-700 font-medium">
-                    {app.nextStep}
+                    {app.notes || "Application submitted successfully"}
                   </span>
                 </div>
                 <div className="flex space-x-2">
                   <Link
-                    to={`/candidate/jobs/${app.id}`}
+                    to={`/candidate/jobs/${app.job?._id}`}
                     className="px-4 py-2 text-primary-600 hover:bg-primary-50 font-medium rounded-lg transition-colors duration-200"
                   >
                     View Job
@@ -272,7 +260,7 @@ function JobStatus() {
                       Join Interview
                     </button>
                   )}
-                  {app.status === "offer" && (
+                  {app.status === "accepted" && (
                     <button className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200">
                       View Offer
                     </button>

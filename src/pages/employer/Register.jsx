@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
-function EmployerLogin() {
+function EmployerRegister() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
+    fullName: "",
     email: "",
     password: "",
+    confirmPassword: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,22 +24,44 @@ function EmployerLogin() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    // Validation
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const result = await login(formData.email, formData.password);
+      const result = await register({
+        name: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        role: "employer", // Backend expects 'employer' not 'ep'
+      });
 
       if (result.success) {
-        if (result.user.role === "ep") {
-          navigate("/employer/dashboard");
-        } else {
-          setError("Please use Employer account to login here");
-        }
+        navigate("/employer/dashboard");
       } else {
-        setError(result.error || "Login failed");
+        setError(result.error || "Registration failed");
       }
-    } catch {
-      setError("An error occurred. Please try again.");
+    } catch (err) {
+      console.error("Registration error:", err);
+      console.error("Error response:", err.response?.data);
+      const errorMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        (err.response?.data?.errors
+          ? err.response.data.errors.map((e) => e.msg).join(", ")
+          : null) ||
+        "An error occurred. Please try again.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -48,7 +72,9 @@ function EmployerLogin() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-neutral-dark">JobMatch</h1>
-          <p className="text-neutral-medium mt-2">Employer Login</p>
+          <p className="text-neutral-medium mt-2">
+            Create your Employer account
+          </p>
         </div>
 
         <div className="bg-white p-8 rounded-lg shadow-subtle border border-neutral-light">
@@ -59,6 +85,25 @@ function EmployerLogin() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label
+                htmlFor="fullName"
+                className="block text-sm font-medium text-neutral-medium mb-1"
+              >
+                Full Name
+              </label>
+              <input
+                id="fullName"
+                name="fullName"
+                type="text"
+                required
+                value={formData.fullName}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-neutral-light rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                placeholder="John Doe"
+              />
+            </div>
+
             <div>
               <label
                 htmlFor="email"
@@ -97,13 +142,23 @@ function EmployerLogin() {
               />
             </div>
 
-            <div className="text-right">
-              <a
-                href="#"
-                className="text-sm font-medium text-brand-blue hover:underline"
+            <div>
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-neutral-medium mb-1"
               >
-                Forgot password?
-              </a>
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-neutral-light rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                placeholder="••••••••"
+              />
             </div>
 
             <button
@@ -111,18 +166,18 @@ function EmployerLogin() {
               disabled={loading}
               className="w-full bg-brand-blue text-white font-semibold py-2 px-4 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Logging in..." : "Login"}
+              {loading ? "Creating account..." : "Sign Up"}
             </button>
           </form>
         </div>
 
         <p className="mt-6 text-center text-sm text-neutral-medium">
-          Don't have an account?{" "}
+          Already have an account?{" "}
           <Link
-            to="/employer/register"
+            to="/employer/login"
             className="font-semibold text-brand-blue hover:underline"
           >
-            Sign up
+            Log in
           </Link>
         </p>
 
@@ -136,4 +191,4 @@ function EmployerLogin() {
   );
 }
 
-export default EmployerLogin;
+export default EmployerRegister;

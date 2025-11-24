@@ -1,78 +1,122 @@
-import { useParams, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { jobSeekerAPI } from "../../services/api";
 
 function JobDetail() {
-  // Mock data - will be replaced with API
-  const job = {
-    id: id,
-    title: "Senior Frontend Developer",
-    company: "TechCorp Vietnam",
-    location: "Ho Chi Minh City, Vietnam",
-    type: "Full-time",
-    workMode: "Hybrid",
-    salary: "$2000 - $3500",
-    logo: "🚀",
-    matchScore: 95,
-    posted: "2 days ago",
-    applicants: 47,
-    description: `We are looking for a talented Senior Frontend Developer to join our growing team. You will be responsible for building and maintaining high-quality web applications using modern technologies.
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [job, setJob] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [isSaved, setIsSaved] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [similarJobs, setSimilarJobs] = useState([]);
 
-Key Responsibilities:
-• Develop and maintain responsive web applications
-• Collaborate with designers and backend developers
-• Write clean, maintainable code
-• Participate in code reviews
-• Mentor junior developers`,
-    requirements: [
-      "5+ years of experience in frontend development",
-      "Strong proficiency in React and TypeScript",
-      "Experience with Tailwind CSS or similar frameworks",
-      "Good understanding of RESTful APIs",
-      "Excellent problem-solving skills",
-      "Strong communication in English",
-    ],
-    benefits: [
-      "Competitive salary and performance bonuses",
-      "13th month salary",
-      "Health insurance for employee and family",
-      "Annual health check-up",
-      "Professional development opportunities",
-      "Modern office with free snacks and drinks",
-      "Team building activities",
-      "Flexible working hours",
-    ],
-    tags: ["React", "TypeScript", "Tailwind CSS", "JavaScript", "Git"],
-    companyInfo: {
-      name: "TechCorp Vietnam",
-      employees: "200-500",
-      industry: "Information Technology",
-      website: "www.techcorp.vn",
-    },
+  useEffect(() => {
+    const fetchJobDetail = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        // Fetch job details
+        const response = await jobSeekerAPI.searchJobs({ _id: id });
+        if (response.data && response.data.length > 0) {
+          setJob(response.data[0]);
+
+          // Check if job is saved
+          try {
+            const savedResponse = await jobSeekerAPI.getSavedJobs();
+            const isSavedJob = savedResponse.data?.some(
+              (saved) => saved.job?._id === id
+            );
+            setIsSaved(isSavedJob);
+          } catch (err) {
+            console.error("Error checking saved status:", err);
+          }
+
+          // Fetch similar jobs
+          try {
+            const similarResponse = await jobSeekerAPI.searchJobs({ limit: 3 });
+            setSimilarJobs(
+              similarResponse.data?.filter((j) => j._id !== id).slice(0, 3) ||
+                []
+            );
+          } catch (err) {
+            console.error("Error fetching similar jobs:", err);
+          }
+        } else {
+          setError("Job not found");
+        }
+      } catch (err) {
+        console.error("Error fetching job:", err);
+        setError("Failed to load job details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobDetail();
+  }, [id]);
+
+  const handleApply = async () => {
+    try {
+      setApplying(true);
+      setError("");
+
+      await jobSeekerAPI.applyForJob(id);
+      alert("Application submitted successfully!");
+      navigate("/candidate/job-status");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to apply for job");
+    } finally {
+      setApplying(false);
+    }
   };
 
-  const similarJobs = [
-    {
-      id: 2,
-      title: "Frontend Developer",
-      company: "Digital Agency",
-      salary: "$1800 - $3000",
-      logo: "💻",
-      matchScore: 88,
-    },
-    {
-      id: 3,
-      title: "React Developer",
-      company: "Startup Hub",
-      salary: "$2200 - $3800",
-      logo: "⚡",
-      matchScore: 92,
-    },
-  ];
+  const handleSaveToggle = async () => {
+    try {
+      if (isSaved) {
+        await jobSeekerAPI.unsaveJob(id);
+        setIsSaved(false);
+      } else {
+        await jobSeekerAPI.saveJob(id);
+        setIsSaved(true);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save job");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue mx-auto"></div>
+          <p className="mt-4 text-neutral-medium">Loading job details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !job) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p className="text-red-700">{error || "Job not found"}</p>
+        <Link
+          to="/candidate/explore"
+          className="text-brand-blue hover:underline mt-2 inline-block"
+        >
+          ← Back to job search
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto">
       {/* Back Button */}
       <Link
-        to="/candidate"
+        to="/candidate/explore"
         className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors duration-200"
       >
         <svg
@@ -88,8 +132,14 @@ Key Responsibilities:
             d="M10 19l-7-7m0 0l7-7m-7 7h18"
           />
         </svg>
-        <span className="font-medium">{t("common.back")}</span>
+        <span className="font-medium">Back to Jobs</span>
       </Link>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content */}
@@ -105,7 +155,9 @@ Key Responsibilities:
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">
                     {job.title}
                   </h1>
-                  <p className="text-xl text-gray-700 mb-2">{job.company}</p>
+                  <p className="text-xl text-gray-700 mb-2">
+                    {job.company?.name || "Company"}
+                  </p>
                   <div className="flex items-center space-x-4 text-gray-600">
                     <span className="flex items-center space-x-1">
                       <svg
@@ -125,17 +177,13 @@ Key Responsibilities:
                     </span>
                     <span>•</span>
                     <span>
-                      {t("job.posted")} {job.posted}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      {job.applicants} {t("job.applicants")}
+                      Posted {new Date(job.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
               </div>
               <button
-                onClick={() => setIsSaved(!isSaved)}
+                onClick={handleSaveToggle}
                 className={`p-3 rounded-lg transition-all duration-200 ${
                   isSaved
                     ? "bg-red-50 text-red-500"
@@ -160,56 +208,42 @@ Key Responsibilities:
 
             {/* Tags */}
             <div className="flex flex-wrap gap-3 mb-6">
-              <span className="badge badge-primary">{job.type}</span>
-              <span className="badge badge-secondary">{job.workMode}</span>
-              <span className="badge badge-success">💰 {job.salary}</span>
-              <span className="badge badge-warning">
-                ✨ {job.matchScore}% {t("job.matchScore")}
+              <span className="badge badge-primary">{job.jobType}</span>
+              <span className="badge badge-secondary">
+                {job.workMode === "remote" ? "🌏 Remote" : 
+                 job.workMode === "hybrid" ? "🔄 Hybrid" : 
+                 "🏢 Onsite"}
               </span>
+              <span className="badge badge-info">{job.experienceLevel}</span>
+              {job.salaryRange && (
+                <span className="badge badge-success">
+                  💰 ${job.salaryRange.min?.toLocaleString()} - ${job.salaryRange.max?.toLocaleString()}
+                </span>
+              )}
             </div>
 
             {/* Action Buttons */}
             <div className="flex gap-3">
-              <button className="flex-1 btn-primary">
-                {t("job.applyNow")}
-              </button>
-              <button className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors duration-200">
-                {t("job.share")}
-              </button>
-            </div>
-          </div>
-
-          {/* API Placeholder */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <div className="flex items-start space-x-3">
-              <svg
-                className="w-6 h-6 text-blue-600 mt-0.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <button
+                onClick={handleApply}
+                disabled={applying}
+                className="flex-1 btn-primary disabled:opacity-50"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <div>
-                <h4 className="font-semibold text-blue-900 mb-1">
-                  API Integration Pending
-                </h4>
-                <p className="text-sm text-blue-700">
-                  {t("common.apiPlaceholder")}
-                </p>
-              </div>
+                {applying ? "Applying..." : "Apply Now"}
+              </button>
+              <button
+                onClick={handleSaveToggle}
+                className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors duration-200"
+              >
+                {isSaved ? "Saved" : "Save Job"}
+              </button>
             </div>
           </div>
 
           {/* Job Description */}
           <div className="card p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              {t("job.description")}
+              Job Description
             </h2>
             <div className="prose max-w-none text-gray-700 whitespace-pre-line">
               {job.description}
@@ -219,7 +253,7 @@ Key Responsibilities:
           {/* Requirements */}
           <div className="card p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              {t("job.requirements")}
+              Requirements
             </h2>
             <ul className="space-y-3">
               {job.requirements.map((req, index) => (
@@ -246,7 +280,7 @@ Key Responsibilities:
           {/* Benefits */}
           <div className="card p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              {t("job.benefits")}
+              Benefits & Perks
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {job.benefits.map((benefit, index) => (
@@ -273,7 +307,7 @@ Key Responsibilities:
           {/* Skills */}
           <div className="card p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              {t("profile.skills")}
+              Required Skills
             </h2>
             <div className="flex flex-wrap gap-3">
               {job.tags.map((tag, index) => (
@@ -293,7 +327,7 @@ Key Responsibilities:
           {/* Company Info */}
           <div className="card p-6 sticky top-24">
             <h3 className="text-xl font-bold text-gray-900 mb-4">
-              {t("job.aboutCompany")}
+              About Company
             </h3>
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
@@ -312,9 +346,7 @@ Key Responsibilities:
 
               <div className="space-y-3 pt-4 border-t border-gray-200">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600">
-                    {t("companies.employees")}
-                  </span>
+                  <span className="text-gray-600">Employees</span>
                   <span className="font-semibold text-gray-900">
                     {job.companyInfo.employees}
                   </span>
@@ -331,7 +363,7 @@ Key Responsibilities:
               </div>
 
               <button className="w-full btn-outline">
-                {t("companies.viewProfile")}
+                View Company Profile
               </button>
             </div>
           </div>
@@ -339,7 +371,7 @@ Key Responsibilities:
           {/* Similar Jobs */}
           <div className="card p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-4">
-              {t("job.similarJobs")}
+              Similar Jobs
             </h3>
             <div className="space-y-4">
               {similarJobs.map((job) => (

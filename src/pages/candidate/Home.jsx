@@ -1,63 +1,120 @@
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { jobSeekerAPI } from "../../services/api";
 
 function CandidateHome() {
-  // Mock data - will be replaced with API
-  const stats = [
-    { label: t("home.stats.jobsAvailable"), value: "12,547", icon: "💼" },
-    { label: t("home.stats.companiesHiring"), value: "3,842", icon: "🏢" },
-    { label: t("home.stats.successRate"), value: "94%", icon: "✨" },
-  ];
+  const [activeTab, setActiveTab] = useState("forYou");
+  const [jobs, setJobs] = useState([]);
+  const [savedJobs, setSavedJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchLocation, setSearchLocation] = useState("");
 
-  const mockJobs = [
-    {
-      id: 1,
-      title: "Senior Frontend Developer",
-      company: "TechCorp Vietnam",
-      location: "Ho Chi Minh City",
-      type: "Full-time",
-      salary: "40000000VND - 56000000VND",
-      logo: "🚀",
-      matchScore: 95,
-      tags: ["React", "TypeScript", "Tailwind"],
-      posted: "2 days ago",
-    },
-    {
-      id: 2,
-      title: "UI/UX Designer",
-      company: "Design Studio",
-      location: "Remote",
-      type: "Contract",
-      salary: "35000000VND - 58000000VND",
-      logo: "🎨",
-      matchScore: 88,
-      tags: ["Figma", "Adobe XD", "Sketch"],
-      posted: "1 week ago",
-    },
-    {
-      id: 3,
-      title: "Full Stack Engineer",
-      company: "Startup Hub",
-      location: "Hanoi",
-      type: "Full-time",
-      salary: "40000000VND - 56000000VND",
-      logo: "⚡",
-      matchScore: 92,
-      tags: ["Node.js", "React", "MongoDB"],
-      posted: "3 days ago",
-    },
-    {
-      id: 4,
-      title: "Product Manager",
-      company: "Innovation Inc",
-      location: "Hybrid",
-      type: "Full-time",
-      salary: "70000000VND - 115000000VND",
-      logo: "📱",
-      matchScore: 85,
-      tags: ["Agile", "Product Strategy", "Leadership"],
-      posted: "5 days ago",
-    },
-  ];
+  // Stats
+  const [stats, setStats] = useState({
+    totalJobs: 0,
+    totalCompanies: 0,
+    successRate: "94%",
+  });
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      if (activeTab === "forYou") {
+        // Fetch recommended jobs for user
+        const response = await jobSeekerAPI.getRecommendedJobs();
+        const jobsData = response.data?.data || response.data || [];
+        setJobs(Array.isArray(jobsData) ? jobsData : []);
+      } else if (activeTab === "explore") {
+        // Fetch all active jobs
+        const response = await jobSeekerAPI.searchJobs({
+          status: "open",
+          limit: 20,
+        });
+        const jobsData = response.data?.data || response.data || [];
+        setJobs(Array.isArray(jobsData) ? jobsData : []);
+      } else if (activeTab === "saved") {
+        // Fetch saved jobs
+        const response = await jobSeekerAPI.getSavedJobs();
+        const savedData = response.data?.data || response.data || [];
+        setSavedJobs(Array.isArray(savedData) ? savedData : []);
+        setJobs(savedData.map((item) => item.job).filter(Boolean));
+      }
+
+      // Fetch stats
+      const allJobsResponse = await jobSeekerAPI.searchJobs({ limit: 1 });
+      const allCompaniesResponse = await jobSeekerAPI.searchCompanies({
+        limit: 1,
+      });
+      setStats((prev) => ({
+        ...prev,
+        totalJobs: allJobsResponse.data?.pagination?.total || 0,
+        totalCompanies: allCompaniesResponse.data?.pagination?.total || 0,
+      }));
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      setJobs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const response = await jobSeekerAPI.searchJobs({
+        keyword: searchKeyword,
+        location: searchLocation,
+        status: "open",
+      });
+      const jobsData = response.data?.data || response.data || [];
+      setJobs(Array.isArray(jobsData) ? jobsData : []);
+      setActiveTab("explore");
+    } catch (error) {
+      console.error("Error searching jobs:", error);
+      setJobs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveJob = async (jobId) => {
+    try {
+      const isSaved = savedJobs.some((item) => item.job?._id === jobId);
+      if (isSaved) {
+        await jobSeekerAPI.unsaveJob(jobId);
+        setSavedJobs(savedJobs.filter((item) => item.job?._id !== jobId));
+      } else {
+        await jobSeekerAPI.saveJob({ jobId });
+        const response = await jobSeekerAPI.getSavedJobs();
+        const savedData = response.data?.data || response.data || [];
+        setSavedJobs(Array.isArray(savedData) ? savedData : []);
+      }
+    } catch (error) {
+      console.error("Error toggling save job:", error);
+    }
+  };
+
+  const formatSalary = (salaryRange) => {
+    if (!salaryRange?.min || !salaryRange?.max) return "Negotiable";
+    return `$${salaryRange.min.toLocaleString()} - $${salaryRange.max.toLocaleString()}`;
+  };
+
+  const formatDate = (date) => {
+    const diff = Date.now() - new Date(date).getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (days === 0) return "Today";
+    if (days === 1) return "1 day ago";
+    if (days < 7) return `${days} days ago`;
+    if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+    return `${Math.floor(days / 30)} months ago`;
+  };
 
   return (
     <div className="space-y-8">
@@ -66,18 +123,22 @@ function CandidateHome() {
         <div className="max-w-4xl">
           <div className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full mb-4">
             <span className="text-sm font-medium">
-              ✨ {t("home.hero.subtitle")}
+              ✨ Your Dream Job Awaits
             </span>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            {t("home.hero.title")}
+            Find Your Perfect Career Match
           </h1>
           <p className="text-lg md:text-xl text-white/90 mb-8">
-            {t("home.hero.description")}
+            Discover thousands of opportunities tailored to your skills and
+            preferences
           </p>
 
           {/* Search Bar */}
-          <div className="bg-white rounded-xl p-2 shadow-2xl">
+          <form
+            onSubmit={handleSearch}
+            className="bg-white rounded-xl p-2 shadow-2xl"
+          >
             <div className="flex flex-col md:flex-row gap-2">
               <div className="flex-1 flex items-center px-4 py-3 bg-gray-50 rounded-lg">
                 <svg
@@ -95,8 +156,10 @@ function CandidateHome() {
                 </svg>
                 <input
                   type="text"
-                  placeholder={t("home.hero.search")}
+                  placeholder="Job title, keywords, or company"
                   className="flex-1 bg-transparent border-none outline-none text-gray-700"
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
                 />
               </div>
               <div className="flex-1 flex items-center px-4 py-3 bg-gray-50 rounded-lg">
@@ -121,31 +184,58 @@ function CandidateHome() {
                 </svg>
                 <input
                   type="text"
-                  placeholder={t("home.hero.location")}
+                  placeholder="Location"
                   className="flex-1 bg-transparent border-none outline-none text-gray-700"
+                  value={searchLocation}
+                  onChange={(e) => setSearchLocation(e.target.value)}
                 />
               </div>
-              <button className="px-8 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors duration-200">
-                {t("home.hero.searchBtn")}
+              <button
+                type="submit"
+                className="px-8 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors duration-200"
+              >
+                Search Jobs
               </button>
             </div>
-          </div>
+          </form>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {stats.map((stat, index) => (
-          <div key={index} className="card p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-                <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-              </div>
-              <div className="text-4xl">{stat.icon}</div>
+        <div className="card p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Jobs Available</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {stats.totalJobs.toLocaleString()}
+              </p>
             </div>
+            <div className="text-4xl">💼</div>
           </div>
-        ))}
+        </div>
+        <div className="card p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Companies Hiring</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {stats.totalCompanies.toLocaleString()}
+              </p>
+            </div>
+            <div className="text-4xl">🏢</div>
+          </div>
+        </div>
+        <div className="card p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Success Rate</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {stats.successRate}
+              </p>
+            </div>
+            <div className="text-4xl">✨</div>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -159,7 +249,7 @@ function CandidateHome() {
                 : "text-gray-600 hover:bg-gray-100"
             }`}
           >
-            🎯 {t("home.forYou.title")}
+            🎯 For You
           </button>
           <button
             onClick={() => setActiveTab("explore")}
@@ -169,7 +259,7 @@ function CandidateHome() {
                 : "text-gray-600 hover:bg-gray-100"
             }`}
           >
-            🔍 {t("home.explore.title")}
+            🔍 Explore All
           </button>
           <button
             onClick={() => setActiveTab("saved")}
@@ -179,35 +269,8 @@ function CandidateHome() {
                 : "text-gray-600 hover:bg-gray-100"
             }`}
           >
-            💾 {t("home.saved.title")}
+            💾 Saved Jobs
           </button>
-        </div>
-      </div>
-
-      {/* API Placeholder Notice */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div className="flex items-start space-x-3">
-          <svg
-            className="w-6 h-6 text-blue-600 mt-0.5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <div>
-            <h4 className="font-semibold text-blue-900 mb-1">
-              API Integration Pending
-            </h4>
-            <p className="text-sm text-blue-700">
-              {t("common.apiPlaceholder")}
-            </p>
-          </div>
         </div>
       </div>
 
@@ -216,95 +279,151 @@ function CandidateHome() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
-              {activeTab === "forYou" && t("home.forYou.title")}
-              {activeTab === "explore" && t("home.explore.title")}
-              {activeTab === "saved" && t("home.saved.title")}
+              {activeTab === "forYou" && "Recommended For You"}
+              {activeTab === "explore" && "All Jobs"}
+              {activeTab === "saved" && "Saved Jobs"}
             </h2>
             <p className="text-gray-600">
-              {activeTab === "forYou" && t("home.forYou.subtitle")}
-              {activeTab === "explore" && t("home.explore.subtitle")}
-              {activeTab === "saved" && t("home.saved.subtitle")}
+              {activeTab === "forYou" &&
+                "Jobs matching your profile and preferences"}
+              {activeTab === "explore" && "Browse all available opportunities"}
+              {activeTab === "saved" && "Jobs you've bookmarked"}
             </p>
           </div>
-          <button className="px-6 py-2 text-primary-600 font-semibold hover:bg-primary-50 rounded-lg transition-colors duration-200">
-            {t("home.forYou.viewAll")} →
-          </button>
+          <Link
+            to="/candidate/jobs"
+            className="px-6 py-2 text-primary-600 font-semibold hover:bg-primary-50 rounded-lg transition-colors duration-200"
+          >
+            View All →
+          </Link>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {mockJobs.map((job) => (
-            <Link
-              key={job.id}
-              to={`/candidate/jobs/${job.id}`}
-              className="card p-6 hover:border-primary-300 border-2 border-transparent transition-all duration-200"
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-primary-400 to-secondary-400 rounded-xl flex items-center justify-center text-2xl">
-                    {job.logo}
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          </div>
+        ) : jobs.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="text-6xl mb-4">📭</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              No jobs found
+            </h3>
+            <p className="text-gray-600">Try adjusting your search criteria</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {jobs.map((job) => {
+              const isSaved = savedJobs.some(
+                (item) => item.job?._id === job._id
+              );
+
+              return (
+                <div
+                  key={job._id}
+                  className="card p-6 hover:border-primary-300 border-2 border-transparent transition-all duration-200"
+                >
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <Link
+                      to={`/candidate/jobs/${job._id}`}
+                      className="flex items-start space-x-4 flex-1"
+                    >
+                      <div className="w-12 h-12 bg-gradient-to-br from-primary-400 to-secondary-400 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+                        {job.company?.logoUrl ? (
+                          <img
+                            src={job.company.logoUrl}
+                            alt={job.company.companyName}
+                            className="w-full h-full object-cover rounded-xl"
+                          />
+                        ) : (
+                          <span>🏢</span>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg text-gray-900 mb-1 hover:text-primary-600 transition-colors">
+                          {job.title}
+                        </h3>
+                        <p className="text-gray-600">
+                          {job.company?.companyName || "Company"}
+                        </p>
+                      </div>
+                    </Link>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleSaveJob(job._id);
+                      }}
+                      className={`p-2 transition-colors duration-200 ${
+                        isSaved
+                          ? "text-red-500"
+                          : "text-gray-400 hover:text-red-500"
+                      }`}
+                    >
+                      <svg
+                        className="w-6 h-6"
+                        fill={isSaved ? "currentColor" : "none"}
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        />
+                      </svg>
+                    </button>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-lg text-gray-900 mb-1">
-                      {job.title}
-                    </h3>
-                    <p className="text-gray-600">{job.company}</p>
-                  </div>
-                </div>
-                <button className="p-2 text-gray-400 hover:text-red-500 transition-colors duration-200">
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                    />
-                  </svg>
-                </button>
-              </div>
 
-              {/* Details */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                <span className="badge badge-primary">{job.type}</span>
-                <span className="badge badge-secondary">📍 {job.location}</span>
-                <span className="badge badge-success">💰 {job.salary}</span>
-              </div>
-
-              {/* Tags */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {job.tags.map((tag, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-lg"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                <div className="flex items-center space-x-4 text-sm text-gray-600">
-                  <span>🕐 {job.posted}</span>
-                  <span className="flex items-center space-x-1">
-                    <span>✨</span>
-                    <span className="font-semibold text-primary-600">
-                      {job.matchScore}% {t("job.matchScore")}
+                  {/* Details */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <span className="badge badge-primary capitalize">
+                      {job.jobType || "Full-time"}
                     </span>
-                  </span>
+                    <span className="badge badge-secondary">
+                      📍 {job.location?.city || job.location || "Location"}
+                    </span>
+                    <span className="badge badge-success">
+                      💰 {formatSalary(job.salaryRange)}
+                    </span>
+                  </div>
+
+                  {/* Tags */}
+                  {job.skills && job.skills.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {job.skills.slice(0, 3).map((skill, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-lg"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                      {job.skills.length > 3 && (
+                        <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-lg">
+                          +{job.skills.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div className="flex items-center space-x-4 text-sm text-gray-600">
+                      <span>🕐 {formatDate(job.createdAt)}</span>
+                    </div>
+                    <Link
+                      to={`/candidate/jobs/${job._id}`}
+                      className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg transition-colors duration-200"
+                    >
+                      Apply Now
+                    </Link>
+                  </div>
                 </div>
-                <button className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg transition-colors duration-200">
-                  {t("job.applyNow")}
-                </button>
-              </div>
-            </Link>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
