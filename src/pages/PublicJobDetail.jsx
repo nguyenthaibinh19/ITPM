@@ -1,18 +1,83 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useAuth } from "../context/AuthContext";
+import { jobSeekerAPI } from "../services/api";
+import ApplyJobModal from "../components/ApplyJobModal";
 
 function PublicJobDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user, logout, loading: authLoading } = useAuth();
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [similarJobs, setSimilarJobs] = useState([]);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [savedJobId, setSavedJobId] = useState(null); // Store the savedJob ID
+  const [showApplyModal, setShowApplyModal] = useState(false);
 
   useEffect(() => {
     fetchJobDetail();
+    // Only check saved status for jobseekers (backend uses "js" as role)
+    if (user && (user.role === "jobseeker" || user.role === "js")) {
+      checkSavedStatus();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, user]);
+
+  const checkSavedStatus = async () => {
+    try {
+      const response = await jobSeekerAPI.getSavedJobs({ page: 1, limit: 100 });
+      const savedJobsData = response.data?.data || response.data || [];
+      const savedItem = savedJobsData.find((saved) => {
+        const jobId = saved.job?._id || saved.job;
+        return jobId === id;
+      });
+      if (savedItem) {
+        setIsSaved(true);
+        setSavedJobId(savedItem._id); // Store the savedJob ID
+      } else {
+        setIsSaved(false);
+        setSavedJobId(null);
+      }
+    } catch (error) {
+      console.error("Error checking saved status:", error);
+    }
+  };
+
+  const handleSaveToggle = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    // Only jobseekers can save jobs (backend uses "js" as role)
+    if (user.role !== "jobseeker" && user.role !== "js") {
+      alert("Only job seekers can save jobs");
+      return;
+    }
+
+    try {
+      if (isSaved && savedJobId) {
+        // Use the savedJob ID, not the job ID
+        await jobSeekerAPI.unsaveJob(savedJobId);
+        setIsSaved(false);
+        setSavedJobId(null);
+      } else {
+        const response = await jobSeekerAPI.saveJob({ jobId: id });
+        setIsSaved(true);
+        // Store the savedJob ID for later unsaving
+        if (response.data?._id) {
+          setSavedJobId(response.data._id);
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling save:", error);
+      alert(error.response?.data?.message || "Failed to save job");
+    }
+  };
 
   const fetchJobDetail = async () => {
     try {
@@ -138,9 +203,9 @@ function PublicJobDetail() {
               Job Not Found
             </h2>
             <p className="text-gray-600 mb-6">{error}</p>
-            <Link
-              to="/jobs"
-              className="inline-flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700"
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
             >
               <svg
                 className="w-5 h-5"
@@ -155,8 +220,8 @@ function PublicJobDetail() {
                   d="M10 19l-7-7m0 0l7-7m-7 7h18"
                 />
               </svg>
-              <span>Back to Job Search</span>
-            </Link>
+              <span>Back</span>
+            </button>
           </div>
         </div>
       </div>
@@ -207,20 +272,144 @@ function PublicJobDetail() {
                 Companies
               </Link>
               <Link
-                to="/login"
-                className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700"
+                to="/employer/login"
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600"
               >
-                Login
+                For Employers
               </Link>
+
+              {authLoading ? (
+                // Loading skeleton while checking auth
+                <div className="w-20 h-10 bg-gray-200 animate-pulse rounded-lg"></div>
+              ) : user ? (
+                <>
+                  {/* Saved Jobs */}
+                  <Link
+                    to="/saved"
+                    className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors relative"
+                    title="Saved Jobs"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      />
+                    </svg>
+                  </Link>
+
+                  {/* Profile Dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowProfileMenu(!showProfileMenu)}
+                      className="flex items-center space-x-2 p-2 text-gray-700 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                        {user.name?.charAt(0).toUpperCase() || "U"}
+                      </div>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+
+                    {showProfileMenu && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                        <div className="px-4 py-3 border-b border-gray-100">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {user.name}
+                          </p>
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                        </div>
+                        <Link
+                          to="/profile"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          My Profile
+                        </Link>
+                        <Link
+                          to="/applications"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          My Applications
+                        </Link>
+                        <Link
+                          to="/saved"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          Saved Jobs
+                        </Link>
+                        <Link
+                          to="/cv"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          My CV
+                        </Link>
+                        <Link
+                          to="/settings"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          Settings
+                        </Link>
+                        <hr className="my-2" />
+                        <button
+                          onClick={() => {
+                            logout();
+                            setShowProfileMenu(false);
+                          }}
+                          className="block w-full text-left px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700"
+                >
+                  Login
+                </Link>
+              )}
             </div>
           </div>
         </div>
       </nav>
 
+      {/* Close dropdown when clicking outside */}
+      {showProfileMenu && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowProfileMenu(false)}
+        />
+      )}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back Button */}
-        <Link
-          to="/jobs"
+        <button
+          onClick={() => navigate(-1)}
           className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
         >
           <svg
@@ -236,8 +425,8 @@ function PublicJobDetail() {
               d="M10 19l-7-7m0 0l7-7m-7 7h18"
             />
           </svg>
-          <span className="font-medium">Back to Jobs</span>
-        </Link>
+          <span className="font-medium">Back</span>
+        </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
@@ -295,12 +484,52 @@ function PublicJobDetail() {
                       Sign in to submit your application
                     </p>
                   </div>
-                  <Link
-                    to={`/login?redirect=/jobs/${id}`}
-                    className="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors whitespace-nowrap"
-                  >
-                    Apply Now →
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    {(!user ||
+                      user.role === "jobseeker" ||
+                      user.role === "js") && (
+                      <button
+                        onClick={handleSaveToggle}
+                        className="px-6 py-3 bg-white border-2 border-indigo-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap flex items-center gap-2"
+                        title={isSaved ? "Unsave job" : "Save job"}
+                      >
+                        <svg
+                          className={`w-5 h-5 ${
+                            isSaved
+                              ? "text-red-500 fill-current"
+                              : "text-gray-400"
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                          />
+                        </svg>
+                        {isSaved ? "Saved" : "Save"}
+                      </button>
+                    )}
+                    {user &&
+                    (user.role === "jobseeker" || user.role === "js") ? (
+                      <button
+                        onClick={() => setShowApplyModal(true)}
+                        className="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors whitespace-nowrap"
+                      >
+                        Apply Now →
+                      </button>
+                    ) : (
+                      <Link
+                        to={`/login?redirect=/jobs/${id}`}
+                        className="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors whitespace-nowrap"
+                      >
+                        Apply Now →
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -459,6 +688,14 @@ function PublicJobDetail() {
           </div>
         </div>
       </div>
+
+      {/* Apply Job Modal */}
+      <ApplyJobModal
+        isOpen={showApplyModal}
+        onClose={() => setShowApplyModal(false)}
+        jobId={id}
+        jobTitle={job?.title || ""}
+      />
     </div>
   );
 }

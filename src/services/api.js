@@ -141,7 +141,7 @@ export const jobSeekerAPI = {
   getRecommendedJobs: (params) => api.get("/js/jobs/recommended", { params }),
 
   // Applications
-  applyForJob: (jobId, data) => api.post(`/jobs/${jobId}/apply`, data),
+  applyForJob: (jobId, data) => api.post(`/js/jobs/${jobId}/apply`, data),
   getMyApplications: (params) => api.get("/js/applications", { params }),
   getApplicationDetail: (id) => api.get(`/js/applications/${id}`),
   cancelApplication: (id) => api.delete(`/js/applications/${id}`),

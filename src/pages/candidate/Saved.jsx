@@ -13,8 +13,10 @@ function Saved() {
   const fetchSavedJobs = async () => {
     try {
       setLoading(true);
-      const response = await jobSeekerAPI.getSavedJobs();
-      setSavedJobs(response.data || []);
+      const response = await jobSeekerAPI.getSavedJobs({ page: 1, limit: 100 });
+      // Handle paginated response
+      const data = response.data?.data || response.data || [];
+      setSavedJobs(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching saved jobs:", error);
     } finally {
@@ -22,10 +24,11 @@ function Saved() {
     }
   };
 
-  const handleUnsave = async (jobId) => {
+  const handleUnsave = async (savedJobId) => {
     try {
-      await jobSeekerAPI.unsaveJob(jobId);
-      setSavedJobs(savedJobs.filter((item) => item.job._id !== jobId));
+      // savedJobId is the _id of the SavedJob document, not the job ID
+      await jobSeekerAPI.unsaveJob(savedJobId);
+      setSavedJobs(savedJobs.filter((item) => item._id !== savedJobId));
     } catch (error) {
       console.error("Error unsaving job:", error);
     }
@@ -33,7 +36,7 @@ function Saved() {
 
   const formatSalary = (salaryRange) => {
     if (!salaryRange?.min || !salaryRange?.max) return "Negotiable";
-    return `$${salaryRange.min.toLocaleString()} - $${salaryRange.max.toLocaleString()}`;
+    return `${salaryRange.min.toLocaleString()} - ${salaryRange.max.toLocaleString()} VND`;
   };
 
   const formatDate = (date) => {
@@ -121,7 +124,7 @@ function Saved() {
                     </div>
                   </Link>
                   <button
-                    onClick={() => handleUnsave(job._id)}
+                    onClick={() => handleUnsave(item._id)}
                     className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-200"
                     title="Remove from saved"
                   >

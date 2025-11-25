@@ -72,6 +72,10 @@ function Profile() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Prevent multiple submissions
+    if (loading) return;
+
     setLoading(true);
 
     try {
@@ -82,39 +86,57 @@ function Profile() {
       const firstName = nameParts[0] || "";
       const lastName = nameParts.slice(1).join(" ") || "";
 
-      // Update basic info (firstName, lastName, email, phone, location, bio)
-      await axios.patch(
-        "http://localhost:5001/api/js/profile/general",
-        {
-          firstName,
-          lastName,
-          email: formData.email,
-          phone: formData.phone,
-          location: formData.location,
-          bio: formData.bio,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      // Update skills separately
-      if (formData.skills && formData.skills.length > 0) {
-        await axios.put(
-          "http://localhost:5001/api/js/profile/skills",
-          { skills: formData.skills },
+      // Use Promise.all to make parallel requests instead of sequential
+      // This reduces the time and number of requests hitting the rate limit
+      const requests = [
+        axios.patch(
+          "http://localhost:5001/api/js/profile/general",
+          {
+            firstName,
+            lastName,
+            email: formData.email,
+            phone: formData.phone,
+            location: formData.location,
+            bio: formData.bio,
+          },
           { headers: { Authorization: `Bearer ${token}` } }
+        ),
+      ];
+
+      // Only add skills request if there are skills to update
+      if (formData.skills && formData.skills.length > 0) {
+        requests.push(
+          axios.put(
+            "http://localhost:5001/api/js/profile/skills",
+            { skills: formData.skills },
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
         );
       }
 
-      // Refresh profile data
-      console.log("✅ Profile update successful, refreshing data...");
-      await fetchProfile();
+      // Execute all requests in parallel
+      await Promise.all(requests);
 
+      console.log("✅ Profile updated successfully!");
       setIsEditing(false);
       alert("Profile updated successfully!");
+
+      // Optional: Refresh profile data only if needed
+      // Commenting out to reduce API calls - we already have the latest data in formData
+      // await fetchProfile();
     } catch (error) {
       console.error("❌ Error updating profile:", error);
-      console.error("Error details:", error.response?.data);
-      alert(error.response?.data?.message || "Failed to update profile");
+      console.error(
+        "Error details:",
+        error.response?.data?.message || error.message
+      );
+
+      // More specific error messages
+      if (error.response?.status === 429) {
+        alert("Too many requests. Please wait a moment and try again.");
+      } else {
+        alert(error.response?.data?.message || "Failed to update profile");
+      }
     } finally {
       setLoading(false);
     }

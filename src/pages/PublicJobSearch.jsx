@@ -1,12 +1,24 @@
 import { useState, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { WORK_MODES, JOB_TYPES, EXPERIENCE_LEVELS } from "../constants";
+import { useAuth } from "../context/AuthContext";
+import { jobSeekerAPI } from "../services/api";
+import {
+  WORK_MODES,
+  JOB_TYPES,
+  EXPERIENCE_LEVELS,
+  VIETNAM_CITIES,
+} from "../constants";
 
 function PublicJobSearch() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { user, logout, loading: authLoading } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [savedJobIds, setSavedJobIds] = useState([]);
+  const [savedJobMap, setSavedJobMap] = useState({}); // Map jobId -> savedJobId
   const [filters, setFilters] = useState({
     keyword: searchParams.get("keyword") || "",
     location: searchParams.get("location") || "",
@@ -17,8 +29,75 @@ function PublicJobSearch() {
 
   useEffect(() => {
     fetchJobs();
+    // Only fetch saved jobs for jobseekers (backend uses "js" as role)
+    if (user && (user.role === "jobseeker" || user.role === "js")) {
+      fetchSavedJobs();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
+
+  const fetchSavedJobs = async () => {
+    try {
+      const response = await jobSeekerAPI.getSavedJobs({ page: 1, limit: 100 });
+      const savedJobsData = response.data?.data || response.data || [];
+      const savedIds =
+        savedJobsData.map((saved) => saved.job?._id || saved.job) || [];
+      // Create a map from job ID to saved job ID for unsaving
+      const jobMap = {};
+      savedJobsData.forEach((saved) => {
+        const jobId = saved.job?._id || saved.job;
+        if (jobId) {
+          jobMap[jobId] = saved._id;
+        }
+      });
+      setSavedJobIds(savedIds);
+      setSavedJobMap(jobMap);
+    } catch (error) {
+      console.error("Error fetching saved jobs:", error);
+    }
+  };
+
+  const handleSaveToggle = async (jobId, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    // Only jobseekers can save jobs (backend uses "js" as role)
+    if (user.role !== "jobseeker" && user.role !== "js") {
+      alert("Only job seekers can save jobs");
+      return;
+    }
+
+    try {
+      if (savedJobIds.includes(jobId)) {
+        // Use the savedJob ID (from the map), not the job ID
+        const savedJobId = savedJobMap[jobId];
+        if (savedJobId) {
+          await jobSeekerAPI.unsaveJob(savedJobId);
+          setSavedJobIds(savedJobIds.filter((id) => id !== jobId));
+          // Remove from map
+          const newMap = { ...savedJobMap };
+          delete newMap[jobId];
+          setSavedJobMap(newMap);
+        }
+      } else {
+        const response = await jobSeekerAPI.saveJob({ jobId });
+        // Store both the job ID in the array and the mapping
+        setSavedJobIds([...savedJobIds, jobId]);
+        // Save the savedJob ID in the map for later unsaving
+        if (response.data?._id) {
+          setSavedJobMap({ ...savedJobMap, [jobId]: response.data._id });
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling save:", error);
+      alert(error.response?.data?.message || "Failed to save job");
+    }
+  };
 
   const fetchJobs = async () => {
     try {
@@ -120,15 +199,137 @@ function PublicJobSearch() {
                 Companies
               </Link>
               <Link
-                to="/login"
-                className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700"
+                to="/employer/login"
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600"
               >
-                Login
+                For Employers
               </Link>
+
+              {authLoading ? (
+                // Loading skeleton while checking auth
+                <div className="w-20 h-10 bg-gray-200 animate-pulse rounded-lg"></div>
+              ) : user ? (
+                <>
+                  <Link
+                    to="/saved"
+                    className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors relative"
+                    title="Saved Jobs"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      />
+                    </svg>
+                  </Link>
+
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowProfileMenu(!showProfileMenu)}
+                      className="flex items-center space-x-2 p-2 text-gray-700 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                        {user.name?.charAt(0).toUpperCase() || "U"}
+                      </div>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+
+                    {showProfileMenu && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                        <div className="px-4 py-3 border-b border-gray-100">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {user.name}
+                          </p>
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                        </div>
+                        <Link
+                          to="/profile"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          My Profile
+                        </Link>
+                        <Link
+                          to="/applications"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          My Applications
+                        </Link>
+                        <Link
+                          to="/saved"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          Saved Jobs
+                        </Link>
+                        <Link
+                          to="/cv"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          My CV
+                        </Link>
+                        <Link
+                          to="/settings"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          Settings
+                        </Link>
+                        <hr className="my-2" />
+                        <button
+                          onClick={() => {
+                            logout();
+                            setShowProfileMenu(false);
+                          }}
+                          className="block w-full text-left px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700"
+                >
+                  Login
+                </Link>
+              )}
             </div>
           </div>
         </div>
       </nav>
+
+      {/* Close dropdown when clicking outside */}
+      {showProfileMenu && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowProfileMenu(false)}
+        />
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
@@ -154,15 +355,20 @@ function PublicJobSearch() {
               }
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
-            <input
-              type="text"
-              placeholder="Location"
+            <select
               value={filters.location}
               onChange={(e) =>
                 setFilters({ ...filters, location: e.target.value })
               }
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            >
+              <option value="">All Locations</option>
+              {VIETNAM_CITIES.map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
             <select
               value={filters.workMode}
               onChange={(e) =>
@@ -259,6 +465,37 @@ function PublicJobSearch() {
                       </p>
                     </div>
                   </div>
+                  {(!user ||
+                    user.role === "jobseeker" ||
+                    user.role === "js") && (
+                    <button
+                      onClick={(e) => handleSaveToggle(job._id, e)}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                      title={
+                        savedJobIds.includes(job._id)
+                          ? "Unsave job"
+                          : "Save job"
+                      }
+                    >
+                      <svg
+                        className={`w-6 h-6 ${
+                          savedJobIds.includes(job._id)
+                            ? "text-red-500 fill-current"
+                            : "text-gray-400"
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        />
+                      </svg>
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-4">

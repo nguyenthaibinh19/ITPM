@@ -309,8 +309,8 @@ function Jobs() {
                           </span>
                           <span>•</span>
                           <span>
-                            ${job.salaryRange?.min?.toLocaleString()} - $
-                            {job.salaryRange?.max?.toLocaleString()}
+                            {job.salaryRange?.min?.toLocaleString()} -{" "}
+                            {job.salaryRange?.max?.toLocaleString()} VND
                           </span>
                         </div>
                         <div className="flex items-center space-x-4">
@@ -517,7 +517,7 @@ function Jobs() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Salary Min (USD) <span className="text-red-500">*</span>
+                  Salary Min (VND) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -526,13 +526,13 @@ function Jobs() {
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="e.g., 50000"
+                  placeholder="e.g., 20000000"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Salary Max (USD) <span className="text-red-500">*</span>
+                  Salary Max (VND) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -541,7 +541,7 @@ function Jobs() {
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="e.g., 80000"
+                  placeholder="e.g., 30000000"
                 />
               </div>
 

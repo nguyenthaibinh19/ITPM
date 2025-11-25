@@ -219,8 +219,8 @@ function JobDetail() {
               <span className="badge badge-info">{job.experienceLevel}</span>
               {job.salaryRange && (
                 <span className="badge badge-success">
-                  💰 ${job.salaryRange.min?.toLocaleString()} - $
-                  {job.salaryRange.max?.toLocaleString()}
+                  💰 {job.salaryRange.min?.toLocaleString()} -{" "}
+                  {job.salaryRange.max?.toLocaleString()} VND
                 </span>
               )}
             </div>

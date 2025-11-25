@@ -1,16 +1,24 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { useAuth } from "../context/AuthContext";
+import { INDUSTRIES, VIETNAM_CITIES } from "../constants";
 
 function CompaniesPage() {
+  const { user, logout, loading: authLoading } = useAuth();
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedIndustry, setSelectedIndustry] = useState("all");
-  const [selectedLocation, setSelectedLocation] = useState("all");
+  const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
+  const [selectedLocation, setSelectedLocation] = useState("All Locations");
   const [industries, setIndustries] = useState(["All Industries"]);
   const [locations, setLocations] = useState(["All Locations"]);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showIndustryDropdown, setShowIndustryDropdown] = useState(false);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [industrySearch, setIndustrySearch] = useState("");
+  const [locationSearch, setLocationSearch] = useState("");
 
   useEffect(() => {
     fetchCompanies();
@@ -35,21 +43,11 @@ function CompaniesPage() {
 
       if (Array.isArray(companiesData) && companiesData.length > 0) {
         setCompanies(companiesData);
-
-        // Extract unique industries and locations from real data
-        const uniqueIndustries = [
-          ...new Set(companiesData.map((c) => c.industry).filter(Boolean)),
-        ];
-        const uniqueLocations = [
-          ...new Set(
-            companiesData.map((c) => c.city || c.location).filter(Boolean)
-          ),
-        ];
-        setIndustries(["All Industries", ...uniqueIndustries]);
-        setLocations(["All Locations", ...uniqueLocations]);
-        console.log("Unique industries:", uniqueIndustries);
-        console.log("Unique locations:", uniqueLocations);
       }
+
+      // Always use predefined lists from constants for consistency
+      setIndustries(["All Industries", ...INDUSTRIES]);
+      setLocations(["All Locations", ...VIETNAM_CITIES]);
     } catch (error) {
       console.error("Error fetching companies:", error);
       if (error.response?.status === 429) {
@@ -61,6 +59,7 @@ function CompaniesPage() {
         setError("Failed to load companies. Showing sample data.");
       }
       // Keep companies empty to trigger mock data fallback
+      // But still populate filters from mock data
       setCompanies([]);
     } finally {
       setLoading(false);
@@ -214,55 +213,147 @@ function CompaniesPage() {
                   Companies
                 </Link>
                 <Link
-                  to="#"
+                  to="/employer/login"
                   className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50 rounded-lg transition-colors"
                 >
-                  Blog
+                  For Employers
                 </Link>
               </div>
             </div>
 
             <div className="flex items-center space-x-3">
-              <button className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors">
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                  />
-                </svg>
-              </button>
-              <button className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors">
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-              </button>
-              <Link
-                to="/login"
-                className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Login
-              </Link>
+              {authLoading ? (
+                <div className="w-20 h-10 bg-gray-200 animate-pulse rounded-lg"></div>
+              ) : user ? (
+                <>
+                  <Link
+                    to="/saved"
+                    className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors relative"
+                    title="Saved Jobs"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      />
+                    </svg>
+                  </Link>
+
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowProfileMenu(!showProfileMenu)}
+                      className="flex items-center space-x-2 p-2 text-gray-700 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                        {user.name?.charAt(0).toUpperCase() || "U"}
+                      </div>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+
+                    {showProfileMenu && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                        <div className="px-4 py-3 border-b border-gray-100">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {user.name}
+                          </p>
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                        </div>
+                        <Link
+                          to="/profile"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          My Profile
+                        </Link>
+                        <Link
+                          to="/applications"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          My Applications
+                        </Link>
+                        <Link
+                          to="/saved"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          Saved Jobs
+                        </Link>
+                        <Link
+                          to="/cv"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          My CV
+                        </Link>
+                        <Link
+                          to="/settings"
+                          className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          Settings
+                        </Link>
+                        <hr className="my-2" />
+                        <button
+                          onClick={() => {
+                            logout();
+                            setShowProfileMenu(false);
+                          }}
+                          className="block w-full text-left px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    Sign Up
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
       </nav>
+
+      {/* Close dropdown when clicking outside */}
+      {showProfileMenu && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowProfileMenu(false)}
+        ></div>
+      )}
 
       {/* Header Section */}
       <section className="bg-white border-b border-gray-200 py-8">
@@ -300,33 +391,190 @@ function CompaniesPage() {
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3">
-              <select
-                value={selectedIndustry}
-                onChange={(e) => setSelectedIndustry(e.target.value)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-              >
-                {industries.map((industry) => (
-                  <option key={industry} value={industry}>
-                    {industry}
-                  </option>
-                ))}
-              </select>
+              {/* Industry Dropdown */}
+              <div className="flex-1 relative">
+                <button
+                  onClick={() => {
+                    setShowIndustryDropdown(!showIndustryDropdown);
+                    setShowLocationDropdown(false);
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white text-left flex items-center justify-between"
+                >
+                  <span className="text-gray-900">{selectedIndustry}</span>
+                  <svg
+                    className={`w-5 h-5 text-gray-400 transition-transform ${
+                      showIndustryDropdown ? "transform rotate-180" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
 
-              <select
-                value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-              >
-                {locations.map((location) => (
-                  <option key={location} value={location}>
-                    {location}
-                  </option>
-                ))}
-              </select>
+                {showIndustryDropdown && (
+                  <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg">
+                    {/* Search input */}
+                    <div className="p-3 border-b border-gray-200">
+                      <div className="relative">
+                        <svg
+                          className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                          />
+                        </svg>
+                        <input
+                          type="text"
+                          placeholder="Search industries..."
+                          value={industrySearch}
+                          onChange={(e) => setIndustrySearch(e.target.value)}
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Options list */}
+                    <div className="max-h-60 overflow-y-auto">
+                      {industries
+                        .filter((industry) =>
+                          industry
+                            .toLowerCase()
+                            .includes(industrySearch.toLowerCase())
+                        )
+                        .map((industry) => (
+                          <button
+                            key={industry}
+                            onClick={() => {
+                              setSelectedIndustry(industry);
+                              setShowIndustryDropdown(false);
+                              setIndustrySearch("");
+                            }}
+                            className={`w-full text-left px-4 py-2.5 hover:bg-indigo-50 transition-colors ${
+                              selectedIndustry === industry
+                                ? "bg-indigo-50 text-indigo-600 font-medium"
+                                : "text-gray-700"
+                            }`}
+                          >
+                            {industry}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Location Dropdown */}
+              <div className="flex-1 relative">
+                <button
+                  onClick={() => {
+                    setShowLocationDropdown(!showLocationDropdown);
+                    setShowIndustryDropdown(false);
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent bg-white text-left flex items-center justify-between"
+                >
+                  <span className="text-gray-900">{selectedLocation}</span>
+                  <svg
+                    className={`w-5 h-5 text-gray-400 transition-transform ${
+                      showLocationDropdown ? "transform rotate-180" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+
+                {showLocationDropdown && (
+                  <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg">
+                    {/* Search input */}
+                    <div className="p-3 border-b border-gray-200">
+                      <div className="relative">
+                        <svg
+                          className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                          />
+                        </svg>
+                        <input
+                          type="text"
+                          placeholder="Search locations..."
+                          value={locationSearch}
+                          onChange={(e) => setLocationSearch(e.target.value)}
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Options list */}
+                    <div className="max-h-60 overflow-y-auto">
+                      {locations
+                        .filter((location) =>
+                          location
+                            .toLowerCase()
+                            .includes(locationSearch.toLowerCase())
+                        )
+                        .map((location) => (
+                          <button
+                            key={location}
+                            onClick={() => {
+                              setSelectedLocation(location);
+                              setShowLocationDropdown(false);
+                              setLocationSearch("");
+                            }}
+                            className={`w-full text-left px-4 py-2.5 hover:bg-indigo-50 transition-colors ${
+                              selectedLocation === location
+                                ? "bg-indigo-50 text-indigo-600 font-medium"
+                                : "text-gray-700"
+                            }`}
+                          >
+                            {location}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </section>
+
+      {/* Backdrop to close dropdowns */}
+      {(showIndustryDropdown || showLocationDropdown) && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => {
+            setShowIndustryDropdown(false);
+            setShowLocationDropdown(false);
+          }}
+        ></div>
+      )}
 
       {/* Companies List */}
       <section className="py-8">

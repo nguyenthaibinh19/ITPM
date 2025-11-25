@@ -2,9 +2,11 @@ import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useAuth } from "./context/AuthContext";
+import { VIETNAM_CITIES } from "./constants";
+import { jobSeekerAPI } from "./services/api";
 
 function HomePage() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const [searchKeyword, setSearchKeyword] = useState("");
   const [location, setLocation] = useState("");
   const [jobs, setJobs] = useState([]);
@@ -15,6 +17,8 @@ function HomePage() {
   const [locationSuggestions, setLocationSuggestions] = useState([]);
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [savedJobIds, setSavedJobIds] = useState([]);
+  const [savedJobMap, setSavedJobMap] = useState({}); // Map jobId -> savedJobId
 
   const fetchSearchSuggestions = useCallback(async () => {
     try {
@@ -37,35 +41,98 @@ function HomePage() {
     fetchJobs();
     fetchCompanies();
     fetchCities();
-  }, []);
+    // Debug: Log user info
+    console.log("Current user:", user);
+    console.log("User role:", user?.role);
+    // Only fetch saved jobs for jobseekers (backend uses "js" as role)
+    if (user && (user.role === "jobseeker" || user.role === "js")) {
+      fetchSavedJobs();
+    }
+  }, [user]);
 
+  const fetchSavedJobs = async () => {
+    try {
+      const response = await jobSeekerAPI.getSavedJobs({ page: 1, limit: 100 });
+      // Response.data contains paginated results or an array
+      const savedJobsData = response.data?.data || response.data || [];
+      const savedIds =
+        savedJobsData.map((saved) => saved.job?._id || saved.job) || [];
+      // Create a map from job ID to saved job ID for unsaving
+      const jobMap = {};
+      savedJobsData.forEach((saved) => {
+        const jobId = saved.job?._id || saved.job;
+        if (jobId) {
+          jobMap[jobId] = saved._id;
+        }
+      });
+      setSavedJobIds(savedIds);
+      setSavedJobMap(jobMap);
+    } catch (error) {
+      console.error("Error fetching saved jobs:", error);
+    }
+  };
+
+  const handleSaveToggle = async (jobId, e) => {
+    e.preventDefault(); // Prevent link navigation
+    e.stopPropagation();
+
+    if (!user) {
+      window.location.href = "/login";
+      return;
+    }
+
+    // Only jobseekers can save jobs (backend uses "js" as role)
+    if (user.role !== "jobseeker" && user.role !== "js") {
+      alert("Only job seekers can save jobs");
+      return;
+    }
+
+    try {
+      if (savedJobIds.includes(jobId)) {
+        // Use the savedJob ID (from the map), not the job ID
+        const savedJobId = savedJobMap[jobId];
+        if (savedJobId) {
+          await jobSeekerAPI.unsaveJob(savedJobId);
+          setSavedJobIds(savedJobIds.filter((id) => id !== jobId));
+          // Remove from map
+          const newMap = { ...savedJobMap };
+          delete newMap[jobId];
+          setSavedJobMap(newMap);
+        }
+      } else {
+        const response = await jobSeekerAPI.saveJob({ jobId });
+        // Store both the job ID in the array and the mapping
+        setSavedJobIds([...savedJobIds, jobId]);
+        // Save the savedJob ID in the map for later unsaving
+        if (response.data?._id) {
+          setSavedJobMap({ ...savedJobMap, [jobId]: response.data._id });
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling save:", error);
+      alert(error.response?.data?.message || "Failed to save job");
+    }
+  };
+
+  // Debounce search suggestions to avoid too many API calls
   useEffect(() => {
     if (searchKeyword.length > 1) {
-      fetchSearchSuggestions();
+      // Add 500ms delay before fetching suggestions
+      const debounceTimer = setTimeout(() => {
+        fetchSearchSuggestions();
+      }, 500);
+
+      // Cleanup previous timer
+      return () => clearTimeout(debounceTimer);
     } else {
       setSearchSuggestions([]);
       setShowSuggestions(false);
     }
   }, [searchKeyword, fetchSearchSuggestions]);
 
-  const fetchCities = async () => {
-    // Get unique cities from jobs
-    try {
-      const response = await axios.get(
-        "http://localhost:5001/api/js/jobs/search",
-        {
-          params: { limit: 100, status: "open" },
-        }
-      );
-      let jobsData =
-        response.data?.data?.data || response.data?.data || response.data || [];
-      const cities = [
-        ...new Set(jobsData.map((job) => job.location?.city).filter(Boolean)),
-      ];
-      setLocationSuggestions(cities);
-    } catch (error) {
-      console.error("Error fetching cities:", error);
-    }
+  const fetchCities = () => {
+    // Use predefined cities list from constants
+    setLocationSuggestions(VIETNAM_CITIES);
   };
 
   const fetchJobs = async () => {
@@ -135,7 +202,7 @@ function HomePage() {
 
   const formatSalary = (salaryRange) => {
     if (!salaryRange?.min || !salaryRange?.max) return "Negotiable";
-    return `$${salaryRange.min.toLocaleString()} - $${salaryRange.max.toLocaleString()}`;
+    return `${salaryRange.min.toLocaleString()} - ${salaryRange.max.toLocaleString()} VND`;
   };
 
   const formatDate = (date) => {
@@ -155,7 +222,7 @@ function HomePage() {
       company: "TechViet Solutions",
       location: "Hanoi",
       type: "Full-time",
-      salary: "$2,000 - $3,000",
+      salary: "20,000,000 - 30,000,000 VND",
       posted: "2 days ago",
       tags: ["React", "TypeScript", "Tailwind CSS"],
       saved: false,
@@ -166,7 +233,7 @@ function HomePage() {
       company: "VinAI Research",
       location: "Ho Chi Minh City",
       type: "Full-time",
-      salary: "$2,500 - $4,000",
+      salary: "25,000,000 - 40,000,000 VND",
       posted: "1 day ago",
       tags: ["Python", "TensorFlow", "PyTorch"],
       saved: true,
@@ -177,7 +244,7 @@ function HomePage() {
       company: "Tiki Corporation",
       location: "Ho Chi Minh City",
       type: "Full-time",
-      salary: "$1,800 - $2,500",
+      salary: "18,000,000 - 25,000,000 VND",
       posted: "3 days ago",
       tags: ["Figma", "UI/UX", "Design System"],
       saved: false,
@@ -188,7 +255,7 @@ function HomePage() {
       company: "Momo E-wallet",
       location: "Hanoi",
       type: "Full-time",
-      salary: "$2,000 - $3,000",
+      salary: "20,000,000 - 30,000,000 VND",
       posted: "1 week ago",
       tags: ["Node.js", "MongoDB", "Microservices"],
       saved: false,
@@ -199,7 +266,7 @@ function HomePage() {
       company: "FPT Software",
       location: "Da Nang",
       type: "Full-time",
-      salary: "$2,200 - $3,500",
+      salary: "22,000,000 - 35,000,000 VND",
       posted: "4 days ago",
       tags: ["AWS", "Docker", "Kubernetes"],
       saved: false,
@@ -210,7 +277,7 @@ function HomePage() {
       company: "Shopee Vietnam",
       location: "Ho Chi Minh City",
       type: "Full-time",
-      salary: "$1,500 - $2,300",
+      salary: "15,000,000 - 23,000,000 VND",
       posted: "5 days ago",
       tags: ["SQL", "Python", "Power BI"],
       saved: false,
@@ -263,16 +330,19 @@ function HomePage() {
                   Companies
                 </Link>
                 <Link
-                  to="#"
+                  to="/employer/login"
                   className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50 rounded-lg transition-colors"
                 >
-                  Blog
+                  For Employers
                 </Link>
               </div>
             </div>
 
             <div className="flex items-center space-x-3">
-              {user ? (
+              {authLoading ? (
+                // Loading skeleton while checking auth
+                <div className="w-20 h-10 bg-gray-200 animate-pulse rounded-lg"></div>
+              ) : user ? (
                 <>
                   {/* Saved Jobs */}
                   <Link
@@ -395,12 +465,6 @@ function HomePage() {
                 </>
               ) : (
                 <>
-                  <Link
-                    to="/employer/login"
-                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
-                  >
-                    For Employers
-                  </Link>
                   <Link
                     to="/login"
                     className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
@@ -692,6 +756,37 @@ function HomePage() {
                         </p>
                       </div>
                     </div>
+                    {(!user ||
+                      user.role === "jobseeker" ||
+                      user.role === "js") && (
+                      <button
+                        onClick={(e) => handleSaveToggle(job._id || job.id, e)}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        title={
+                          savedJobIds.includes(job._id || job.id)
+                            ? "Unsave job"
+                            : "Save job"
+                        }
+                      >
+                        <svg
+                          className={`w-6 h-6 ${
+                            savedJobIds.includes(job._id || job.id)
+                              ? "text-red-500 fill-current"
+                              : "text-gray-400"
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                          />
+                        </svg>
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap gap-2 mb-4">

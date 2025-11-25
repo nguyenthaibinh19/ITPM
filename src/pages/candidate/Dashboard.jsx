@@ -260,7 +260,7 @@ function Dashboard() {
                       <div className="flex items-center space-x-3 mt-2">
                         <span className="text-sm font-medium text-primary-600">
                           {job.salary
-                            ? `$${job.salary.min} - $${job.salary.max}`
+                            ? `${job.salary.min.toLocaleString()} - ${job.salary.max.toLocaleString()} VND`
                             : "Negotiable"}
                         </span>
                         <span className="text-xs text-gray-500">

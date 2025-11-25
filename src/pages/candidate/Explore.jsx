@@ -70,7 +70,7 @@ function Explore() {
 
   const formatSalary = (salaryRange) => {
     if (!salaryRange?.min || !salaryRange?.max) return "Negotiable";
-    return `$${salaryRange.min.toLocaleString()} - $${salaryRange.max.toLocaleString()}`;
+    return `${salaryRange.min.toLocaleString()} - ${salaryRange.max.toLocaleString()} VND`;
   };
 
   const formatDate = (date) => {

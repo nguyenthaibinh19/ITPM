@@ -28,7 +28,7 @@ function EmployerLogin() {
       const result = await login(formData.email, formData.password);
 
       if (result.success) {
-        if (result.user.role === "ep") {
+        if (result.user.role === "employer") {
           navigate("/employer/dashboard");
         } else {
           setError("Please use Employer account to login here");

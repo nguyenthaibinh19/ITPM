@@ -454,8 +454,8 @@ function JobsNew() {
                           </span>
                           <span>•</span>
                           <span>
-                            ${job.salaryRange?.min?.toLocaleString()} - $
-                            {job.salaryRange?.max?.toLocaleString()}
+                            {job.salaryRange?.min?.toLocaleString()} -{" "}
+                            {job.salaryRange?.max?.toLocaleString()} VND
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-3">
@@ -704,7 +704,7 @@ function JobsNew() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Salary Min (USD) <span className="text-red-500">*</span>
+                  Salary Min (VND) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -713,13 +713,13 @@ function JobsNew() {
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                  placeholder="50000"
+                  placeholder="20000000"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Salary Max (USD) <span className="text-red-500">*</span>
+                  Salary Max (VND) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -728,7 +728,7 @@ function JobsNew() {
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                  placeholder="80000"
+                  placeholder="30000000"
                 />
               </div>
 
