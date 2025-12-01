@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { authAPI } from "../../services/api";
+// ❌ Không cần nữa nếu login local, bạn có thể xoá dòng dưới
+// import { authAPI } from "../../services/api";
 
 function AdminLogin() {
   const navigate = useNavigate();
@@ -24,23 +25,29 @@ function AdminLogin() {
     setLoading(true);
 
     try {
-      const response = await authAPI.adminLogin(
-        formData.email,
-        formData.password
-      );
+      // ✅ Check tài khoản cố định ở đây
+      if (formData.email === "admin" && formData.password === "admin") {
+        // Lưu token và thông tin admin giả lập
+        localStorage.setItem("adminToken", "static_admin_token");
+        localStorage.setItem(
+          "adminUser",
+          JSON.stringify({
+            email: "admin",
+            name: "Administrator",
+            role: "admin",
+          })
+        );
 
-      if (response.success) {
-        // Store token and admin info
-        localStorage.setItem("adminToken", response.token);
-        localStorage.setItem("adminUser", JSON.stringify(response.admin));
+        // Điều hướng sang dashboard
         navigate("/admin/dashboard");
       } else {
-        setError(response.message || "Login failed");
+        setError("Sai tài khoản hoặc mật khẩu!");
       }
+
+      // Nếu sau này dùng API thật, bạn chỉ cần thay block trên
+      // bằng đoạn gọi authAPI như trước là xong.
     } catch (err) {
-      setError(
-        err.response?.data?.message || "An error occurred. Please try again."
-      );
+      setError("Đã xảy ra lỗi, vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -74,12 +81,12 @@ function AdminLogin() {
               <input
                 id="email"
                 name="email"
-                type="email"
+                type="text"
                 required
                 value={formData.email}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-neutral-light rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
-                placeholder="admin@jobmatch.com"
+                placeholder=""
               />
             </div>
 
@@ -98,7 +105,7 @@ function AdminLogin() {
                 value={formData.password}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-neutral-light rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
-                placeholder="••••••••"
+                placeholder=""
               />
             </div>
 
